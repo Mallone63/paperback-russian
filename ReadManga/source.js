@@ -508,13 +508,17 @@ exports.ReadMangaInfo = {
     description: 'Extension that pulls manga from readmanga.io',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
-    icon: "",
+    icon: "logo.png",
     hentaiSource: false,
     websiteBaseURL: ReadManga_DOMAIN,
     sourceTags: [
         {
             text: "Buggy",
             type: paperback_extensions_common_1.TagType.RED
+        },
+        {
+            text: "Russian",
+            type: paperback_extensions_common_1.TagType.GREY
         }
     ]
 };
