@@ -6094,7 +6094,7 @@ class Parser {
         let pages = [];
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
-                if (script.children[0].data.includes('rm_h.initReader')) {
+                if (script.children[0].data.includes('rm_h.initReader(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
                         pages.push(link[1].replace('\',\'\',\"', ''));
