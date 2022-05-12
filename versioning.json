@@ -7,13 +7,17 @@
             "author": "mallone63",
             "desc": "Extension that pulls manga from readmanga.io",
             "website": "https://github.com/mallone63",
-            "version": "1.0.2",
+            "version": "1.0.5",
             "icon": "logo.png",
             "tags": [
                 {
                     "text": "Buggy",
                     "type": "danger"
                 },
+                {
+                    "text": "Notifications",
+                    "type": "success"
+                },				
                 {
                     "text": "Russian",
                     "type": "info"

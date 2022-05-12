@@ -6134,6 +6134,29 @@ class Parser {
         }
         return mangaTiles;
     }
+    parseUpdatedManga($, cheerio, time, ids) {
+        var _a, _b;
+        let collectedIds = [];
+        let directManga = $('div.tile');
+        let descArray = $('h3', directManga).toArray();
+        let timeArray = $('div.manga-updated.ribbon').toArray();
+        let index = 0;
+        for (let obj of descArray) {
+            let id = (_a = $('a', $(obj)).attr('href')) === null || _a === void 0 ? void 0 : _a.replace('/', '');
+            let updateTime = moment_1.default((_b = timeArray[index]) === null || _b === void 0 ? void 0 : _b.attribs['title'], 'HH:MM DD.MM');
+            let lastUpdatedTime = moment_1.default(time);
+            index++;
+            if (!id) {
+                continue;
+            }
+            if (typeof id === 'undefined' || id.includes('/person/'))
+                continue;
+            if (!collectedIds.includes(id) && ids.includes(id) && updateTime.isBefore(lastUpdatedTime)) {
+                collectedIds.push(id);
+            }
+        }
+        return collectedIds;
+    }
     parseTags($) {
         var _a;
         let tagSections = [createTagSection({ id: '0', label: 'genres', tags: [] })];
@@ -6387,6 +6410,28 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 results: manga,
                 metadata: mData
             });
+        });
+    }
+    filterUpdatedManga(mangaUpdatesFoundCallback, time, ids) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let page = 0;
+            while (page < 420) {
+                const request = createRequestObject({
+                    url: `${ReadManga_DOMAIN}/list`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: `?sortType=DATE_UPDATE&offset=${page}`
+                });
+                page += 70;
+                let data = yield this.requestManager.schedule(request, 1);
+                let $ = this.cheerio.load(data.data);
+                let mangaIds = this.parser.parseUpdatedManga($, this.cheerio, time, ids);
+                if (mangaIds.length > 0) {
+                    mangaUpdatesFoundCallback(createMangaUpdates({
+                        ids: mangaIds
+                    }));
+                }
+            }
         });
     }
     constructHeaders(headers, refererPath) {
