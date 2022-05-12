@@ -5,9 +5,9 @@
             "id": "ReadManga",
             "name": "ReadManga",
             "author": "mallone63",
-            "desc": "Extension that pulls manga from readmanga.io",
+            "desc": "Extension that pulls manga from readmanga.live",
             "website": "https://github.com/mallone63",
-            "version": "1.0.2",
+            "version": "1.0.9",
             "icon": "logo.png",
             "tags": [
                 {
@@ -15,11 +15,15 @@
                     "type": "danger"
                 },
                 {
+                    "text": "Notifications",
+                    "type": "success"
+                },				
+                {
                     "text": "Russian",
                     "type": "info"
                 }
             ],
-            "websiteBaseURL": "https://readmanga.io"
+            "websiteBaseURL": "https://readmanga.live"
         }
     ]
 }
