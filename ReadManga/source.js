@@ -6091,6 +6091,7 @@ class Parser {
     }
     parseChapterDetails($, url) {
         let scripts = $('script').toArray();
+        console.log('scripts found: ', scripts.length);
         let pages = [];
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
@@ -6250,7 +6251,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
         super(...arguments);
         this.requestManager = createRequestManager({
             requestsPerSecond: 2,
-            requestTimeout: 15000,
+            requestTimeout: 30000,
         });
         this.baseUrl = ReadManga_DOMAIN;
         this.userAgentRandomizer = `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/78.0${Math.floor(Math.random() * 100000)}`;
@@ -6292,7 +6293,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 headers: this.constructHeaders({})
             });
             let data = yield this.requestManager.schedule(request, 1);
-            let $ = this.cheerio.load(data.data, { xmlMode: true });
+            let $ = this.cheerio.load(data.data);
             let pages = this.parser.parseChapterDetails($, `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`);
             console.log('found pages: ', pages.length);
             console.log(pages);
