@@ -15,12 +15,12 @@ import {
 
 import { Parser, } from './Parser'
 
-const ReadManga_DOMAIN = 'https://readmanga.io'
+const ReadManga_DOMAIN = 'https://readmanga.live'
 
 export const ReadMangaInfo: SourceInfo = {
     version: '1.0.1',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.io',
+    description: 'Extension that pulls manga from readmanga.live',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
@@ -42,7 +42,7 @@ export class ReadManga extends Source {
 
     requestManager = createRequestManager({
         requestsPerSecond: 2,
-        requestTimeout: 15000,
+        requestTimeout: 30000,
     })
 
 
@@ -95,11 +95,10 @@ export class ReadManga extends Source {
 
         let data = await this.requestManager.schedule(request, 1)
 
-        let $ = this.cheerio.load(data.data, { xmlMode: true })
+        let $ = this.cheerio.load(data.data)
         let pages = this.parser.parseChapterDetails($, `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`)
-
-
-
+        console.log('found pages: ', pages.length)
+        console.log(pages)
 
         return createChapterDetails({
             id: chapterId,
@@ -115,8 +114,6 @@ export class ReadManga extends Source {
         let page: number = metadata?.page ?? 1
 
         let request = this.constructSearchRequest(query.title ?? '')
-
-
 
         let data = await this.requestManager.schedule(request, 1)
         let $ = this.cheerio.load(data.data)
@@ -235,6 +232,33 @@ export class ReadManga extends Source {
             results: manga,
             metadata: mData
         })
+    }
+
+
+    async filterUpdatedManga(mangaUpdatesFoundCallback: (updates: MangaUpdates) => void, time: Date, ids: string[]): Promise<void> {
+        let page = 0
+
+        while (page < 420) {
+            const request = createRequestObject({
+                url: `${ReadManga_DOMAIN}/list`,
+                method: 'GET',
+                headers: this.constructHeaders({}),
+                param: `?sortType=DATE_UPDATE&offset=${page}`
+            })
+
+            page += 70
+
+            let data = await this.requestManager.schedule(request, 1)
+            let $ = this.cheerio.load(data.data)
+
+            let mangaIds = this.parser.parseUpdatedManga($, this.cheerio, time, ids)
+            if (mangaIds.length > 0) {
+                mangaUpdatesFoundCallback(createMangaUpdates({
+                    ids: mangaIds
+                }))
+            }
+        }
+        
     }
 
 

@@ -1,7 +1,7 @@
 import moment from 'moment'
 import { Chapter, LanguageCode, Manga, MangaStatus, MangaTile, Tag, TagSection } from 'paperback-extensions-common'
 
-const READMANGA_DOMAIN = 'https://readmanga.io/'
+const READMANGA_DOMAIN = 'https://readmanga.live/'
 
 export class Parser {
 
@@ -84,12 +84,15 @@ export class Parser {
 
     parseChapterDetails($: CheerioSelector, url: string): string[] {
         let scripts = $('script').toArray()
+        console.log('scripts found: ', scripts.length)
         let pages = []
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
-                if (script.children[0].data.includes('rm_h.initReader')) {
+                console.log(script.children[0].data)
+                if (script.children[0].data.includes('rm_h.initReader(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
                     for (let link of links) {
+                        console.log(link)
                         pages.push(link[1].replace('\',\'\',\"', ''))
                     }
                     break
@@ -100,7 +103,7 @@ export class Parser {
     }
 
 
-    parseSearchResults($: CheerioSelector, cheerio: any): MangaTile[] {
+    parseSearchResults($: CheerioSelector, cheerio: any): any {
         let mangaTiles: MangaTile[] = []
         let collectedIds: string[] = []
 
@@ -128,6 +131,31 @@ export class Parser {
             }
         }
         return mangaTiles
+    }
+
+
+    parseUpdatedManga($: CheerioSelector, cheerio: any, time: Date, ids: string[]): any {
+        let collectedIds: string[] = []
+
+        let directManga = $('div.tile')
+        let descArray = $('h3', directManga).toArray()
+        let timeArray = $('div.manga-updated.ribbon').toArray()
+
+        let index = 0
+        for (let obj of descArray) {
+            let id = $('a', $(obj)).attr('href')?.replace('/', '')
+            let updateTime = moment(timeArray[index]?.attribs['title'], 'HH:MM DD.MM')
+            let lastUpdatedTime = moment(time)
+            index++
+            if (!id) {
+                continue
+            }
+            if (typeof id === 'undefined' || id.includes('/person/')) continue
+            if (!collectedIds.includes(id) && ids.includes(id) && updateTime.isBefore(lastUpdatedTime) ) {
+                collectedIds.push(id)
+            }
+        }
+        return collectedIds
     }
 
 

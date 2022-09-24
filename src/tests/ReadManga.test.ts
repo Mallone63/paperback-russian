@@ -1,4 +1,5 @@
 import cheerio from 'cheerio'
+import { now } from 'moment';
 import { APIWrapper, MangaUpdates, Source } from 'paperback-extensions-common';
 import { ReadManga } from '../ReadManga/ReadManga';
 
@@ -18,7 +19,9 @@ describe('ReadManga Tests', function () {
 
     // var mangaId = "klinok__rassekaiuchii_demonov__A5327";
     // var mangaId = "povest_o_lunnoi_princesse";
-    var mangaId = "stalnoi_alhimik__A5327";
+    // var mangaId = "stalnoi_alhimik__A5327";
+    var mangaId = "van_pis__A5664";
+    
 
 
     it("Retrieve Manga Details", async () => {
@@ -50,7 +53,7 @@ describe('ReadManga Tests', function () {
     it("Get Chapter Details", async () => {
 
         let chapters = await wrapper.getChapters(source, mangaId);
-        let data = await wrapper.getChapterDetails(source, mangaId, chapters[4].id);
+        let data = await wrapper.getChapterDetails(source, mangaId, chapters[1000].id);
         expect(data, "No server response").to.exist;
         expect(data, "Empty server response").to.not.be.empty;
 
@@ -100,9 +103,8 @@ describe('ReadManga Tests', function () {
         expect(data, "Empty server response").to.not.be.empty;
     })
 
-
     // it("Testing Notifications", async () => {
-    //     let updates = await wrapper.filterUpdatedManga(source, new Date("2022-04-20"), [mangaId]);
+    //     let updates = await wrapper.filterUpdatedManga(source, new Date("2022-05-14"), ["ekscentrichnaia_gercoginia", "ia_podobrala_vtorostepennogo_personaja_posle_konca__A533b"]);
     //     expect(updates, "No server response").to.exist;
     //     expect(updates, "Empty server response").to.not.be.empty;
     // })
