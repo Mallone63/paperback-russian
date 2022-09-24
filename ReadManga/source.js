@@ -6091,10 +6091,10 @@ class Parser {
     }
     parseChapterDetails($, url) {
         let scripts = $('script').toArray();
-        console.log(scripts);
         let pages = [];
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
+                console.log(script.children[0].data);
                 if (script.children[0].data.includes('rm_h.initReader(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
