@@ -6019,7 +6019,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Parser = void 0;
 const moment_1 = __importDefault(require("moment"));
 const paperback_extensions_common_1 = require("paperback-extensions-common");
-const READMANGA_DOMAIN = 'https://readmanga.io/';
+const READMANGA_DOMAIN = 'https://readmanga.live/';
 class Parser {
     parseMangaDetails($, mangaId) {
         var _a, _b;
@@ -6094,9 +6094,10 @@ class Parser {
         let pages = [];
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
-                if (script.children[0].data.includes('rm_h.initReader')) {
+                if (script.children[0].data.includes('rm_h.initReader(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
+                        console.log(link);
                         pages.push(link[1].replace('\',\'\',\"', ''));
                     }
                     break;
@@ -6133,6 +6134,29 @@ class Parser {
             }
         }
         return mangaTiles;
+    }
+    parseUpdatedManga($, cheerio, time, ids) {
+        var _a, _b;
+        let collectedIds = [];
+        let directManga = $('div.tile');
+        let descArray = $('h3', directManga).toArray();
+        let timeArray = $('div.manga-updated.ribbon').toArray();
+        let index = 0;
+        for (let obj of descArray) {
+            let id = (_a = $('a', $(obj)).attr('href')) === null || _a === void 0 ? void 0 : _a.replace('/', '');
+            let updateTime = moment_1.default((_b = timeArray[index]) === null || _b === void 0 ? void 0 : _b.attribs['title'], 'HH:MM DD.MM');
+            let lastUpdatedTime = moment_1.default(time);
+            index++;
+            if (!id) {
+                continue;
+            }
+            if (typeof id === 'undefined' || id.includes('/person/'))
+                continue;
+            if (!collectedIds.includes(id) && ids.includes(id) && updateTime.isBefore(lastUpdatedTime)) {
+                collectedIds.push(id);
+            }
+        }
+        return collectedIds;
     }
     parseTags($) {
         var _a;
@@ -6199,11 +6223,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
-const ReadManga_DOMAIN = 'https://readmanga.io';
+const ReadManga_DOMAIN = 'https://readmanga.live';
 exports.ReadMangaInfo = {
     version: '1.0.1',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.io',
+    description: 'Extension that pulls manga from readmanga.live',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
@@ -6387,6 +6411,28 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 results: manga,
                 metadata: mData
             });
+        });
+    }
+    filterUpdatedManga(mangaUpdatesFoundCallback, time, ids) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let page = 0;
+            while (page < 420) {
+                const request = createRequestObject({
+                    url: `${ReadManga_DOMAIN}/list`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: `?sortType=DATE_UPDATE&offset=${page}`
+                });
+                page += 70;
+                let data = yield this.requestManager.schedule(request, 1);
+                let $ = this.cheerio.load(data.data);
+                let mangaIds = this.parser.parseUpdatedManga($, this.cheerio, time, ids);
+                if (mangaIds.length > 0) {
+                    mangaUpdatesFoundCallback(createMangaUpdates({
+                        ids: mangaIds
+                    }));
+                }
+            }
         });
     }
     constructHeaders(headers, refererPath) {
