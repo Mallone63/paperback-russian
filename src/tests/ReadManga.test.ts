@@ -42,6 +42,7 @@ describe('ReadManga Tests', function () {
         let data = await wrapper.getChapters(source, mangaId);
 
         expect(data, "No chapters present for: [" + mangaId + "]").to.not.be.empty;
+        console.log(data);
 
         let entry = data[0]
         expect(entry.id, "No ID present").to.not.be.empty;
@@ -53,7 +54,8 @@ describe('ReadManga Tests', function () {
     it("Get Chapter Details", async () => {
 
         let chapters = await wrapper.getChapters(source, mangaId);
-        let data = await wrapper.getChapterDetails(source, mangaId, chapters[1000].id);
+        let data = await wrapper.getChapterDetails(source, mangaId, chapters[20].id);
+        console.log(data);
         expect(data, "No server response").to.exist;
         expect(data, "Empty server response").to.not.be.empty;
 
