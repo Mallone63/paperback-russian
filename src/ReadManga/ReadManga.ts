@@ -147,14 +147,17 @@ export class ReadManga extends Source {
     async searchRequest(query: SearchRequest, metadata: any,): Promise<PagedResults> {
         let page: number = metadata?.page ?? 1
 
-        let request = this.constructSearchRequest(query.title ?? '')
+        let manga
+        let mData = { page: (1) }
+        for (let domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
+            let request = this.constructSearchRequest(query.title ?? '', domain)
 
-        let data = await this.requestManager.schedule(request, 1)
-        let $ = this.cheerio.load(data.data)
-        let manga = this.parser.parseSearchResults($, this.cheerio)
-        let mData = undefined
-        if (!this.parser.isLastPage($)) {
-            mData = { page: (page + 1) }
+            let data = await this.requestManager.schedule(request, 1)
+            let $ = this.cheerio.load(data.data)
+            manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio)
+            if (!this.parser.isLastPage($)) {
+                mData = { page: (page + 1) }
+            }
         }
 
         return createPagedResults({
@@ -322,14 +325,82 @@ export class ReadManga extends Source {
     }
 
 
-    constructSearchRequest(searchQuery: string): any {
+    constructSearchRequest(searchQuery: string, domain: string): any {
         let isSearch = searchQuery != ''
         let data: any = {
-            "q": `${searchQuery} : искать!`,
+            "q": `${searchQuery}`,
+            "el_1346": ``, 
+            "el_1334": ``, 
+            "el_1333": ``, 
+            "el_1347": ``, 
+            "el_1337": ``, 
+            "el_1343": ``, 
+            "el_1349": ``, 
+            "el_1310": ``, 
+            "el_5229": ``, 
+            "el_1311": ``, 
+            "el_6420": ``, 
+            "el_1351": ``, 
+            "el_1328": ``, 
+            "el_1318": ``, 
+            "el_1325": ``, 
+            "el_1327": ``, 
+            "el_1342": ``, 
+            "el_1322": ``, 
+            "el_1335": ``, 
+            "el_1313": ``, 
+            "el_1316": ``, 
+            "el_1350": ``, 
+            "el_1314": ``, 
+            "el_1320": ``, 
+            "el_1326": ``, 
+            "el_1330": ``, 
+            "el_1321": ``, 
+            "el_1329": ``, 
+            "el_6631": ``, 
+            "el_1344": ``, 
+            "el_1341": ``, 
+            "el_1317": ``, 
+            "el_6632": ``, 
+            "el_1323": ``, 
+            "el_1319": ``, 
+            "el_1340": ``, 
+            "el_1354": ``, 
+            "el_1315": ``, 
+            "el_1336": ``, 
+            "el_6637": ``, 
+            "el_2220": ``, 
+            "el_1332": ``, 
+            "el_2741": ``, 
+            "el_1903": ``, 
+            "el_6421": ``, 
+            "el_1873": ``, 
+            "el_1875": ``, 
+            "el_5688": ``, 
+            "el_3969": ``, 
+            "el_3968": ``, 
+            "el_3990": ``, 
+            "el_6641": ``, 
+            "el_4614": ``, 
+            "el_1355": ``, 
+            "el_1874": ``, 
+            "el_1348": ``, 
+            "s_high_rate": ``, 
+            "s_single": ``, 
+            "s_mature": ``, 
+            "s_completed": ``, 
+            "s_translated": ``, 
+            "s_abandoned_popular": ``, 
+            "s_many_chapters": ``, 
+            "s_wait_upload": ``, 
+            "s_not_pessimized": ``, 
+            "years": `1961,2023`,
+            "sortType": `RATING`,
+            " ": `Искать`,
         }
 
         return createRequestObject({
-            url: `${ReadManga_DOMAIN}/search`,
+            url: `${domain}/search/advanced`,
             method: 'POST',
             headers: this.constructHeaders({}),
             data: this.urlEncodeObject(data),

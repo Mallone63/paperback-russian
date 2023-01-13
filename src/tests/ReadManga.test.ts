@@ -30,6 +30,7 @@ describe('ReadManga Tests', function () {
 
         // Validate that the fields are filled
         let data = details;
+        console.log(data);
         expect(data.id, "Missing ID").to.be.not.empty;
         expect(data.image, "Missing Image").to.be.not.empty;
         expect(data.status, "Missing Status").to.exist;
@@ -66,7 +67,7 @@ describe('ReadManga Tests', function () {
 
     it("Testing search", async () => {
         let testSearch = createSearchRequest({
-            title: 'Fullmetal Alchemist'
+            title: 'chainsaw'
         });
 
         let search = await wrapper.searchRequest(source, testSearch, 1);
