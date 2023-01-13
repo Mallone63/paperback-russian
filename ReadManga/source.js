@@ -6100,7 +6100,9 @@ class Parser {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
                         console.log(link);
-                        let strippedLink = link[1].replace('\',\'\',\"', '').replace(/\?.*$/g, "");
+                        let strippedLink = link[1].replace('\',\'\',\"', '');
+                        if (!strippedLink.includes('rmr.rocks'))
+                            strippedLink = strippedLink.replace(/\?.*$/g, "");
                         console.log(strippedLink);
                         pages.push(strippedLink);
                     }
@@ -6228,6 +6230,7 @@ exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
 const ReadManga_DOMAIN = 'https://readmanga.live';
+const AdultManga_DOMAIN = 'https://mintmanga.live';
 exports.ReadMangaInfo = {
     version: '1.0.1',
     name: 'ReadManga',
@@ -6264,12 +6267,25 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     getMangaDetails(mangaId) {
         return __awaiter(this, void 0, void 0, function* () {
+            let data;
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}/${mangaId}`,
                 method: 'GET',
-                headers: this.constructHeaders({})
+                headers: this.constructHeaders({}),
+                param: '?mtr=1'
             });
-            const data = yield this.requestManager.schedule(request, 1);
+            try {
+                data = yield this.requestManager.schedule(request, 1);
+            }
+            catch (_a) {
+                request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+                data = yield this.requestManager.schedule(request, 1);
+            }
             let $ = this.cheerio.load(data.data);
             return this.parser.parseMangaDetails($, mangaId);
         });
@@ -6279,9 +6295,22 @@ class ReadManga extends paperback_extensions_common_1.Source {
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}/${mangaId}`,
                 method: "GET",
-                headers: this.constructHeaders({})
+                headers: this.constructHeaders({}),
+                param: '?mtr=1'
             });
-            const data = yield this.requestManager.schedule(request, 1);
+            let data;
+            try {
+                data = yield this.requestManager.schedule(request, 1);
+            }
+            catch (_a) {
+                request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+                data = yield this.requestManager.schedule(request, 1);
+            }
             let $ = this.cheerio.load(data.data);
             let chapters = this.parser.parseChapterList($, mangaId);
             return chapters;
@@ -6292,9 +6321,22 @@ class ReadManga extends paperback_extensions_common_1.Source {
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
                 method: 'GET',
-                headers: this.constructHeaders({})
+                headers: this.constructHeaders({}),
+                param: '?mtr=1'
             });
-            let data = yield this.requestManager.schedule(request, 1);
+            let data;
+            try {
+                data = yield this.requestManager.schedule(request, 1);
+            }
+            catch (_a) {
+                request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+                data = yield this.requestManager.schedule(request, 1);
+            }
             let $ = this.cheerio.load(data.data);
             let pages = this.parser.parseChapterDetails($, `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`);
             console.log('found pages: ', pages.length);
