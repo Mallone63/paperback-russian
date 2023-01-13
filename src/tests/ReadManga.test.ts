@@ -20,7 +20,7 @@ describe('ReadManga Tests', function () {
     // var mangaId = "klinok__rassekaiuchii_demonov__A5327";
     // var mangaId = "povest_o_lunnoi_princesse";
     // var mangaId = "stalnoi_alhimik__A5327";
-    var mangaId = "van_pis__A5664";
+    var mangaId = "chelovek_benzopila_2";
     
 
 
@@ -54,7 +54,7 @@ describe('ReadManga Tests', function () {
     it("Get Chapter Details", async () => {
 
         let chapters = await wrapper.getChapters(source, mangaId);
-        let data = await wrapper.getChapterDetails(source, mangaId, chapters[20].id);
+        let data = await wrapper.getChapterDetails(source, mangaId, chapters[5].id);
         console.log(data);
         expect(data, "No server response").to.exist;
         expect(data, "Empty server response").to.not.be.empty;

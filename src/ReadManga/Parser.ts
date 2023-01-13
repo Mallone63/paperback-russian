@@ -93,7 +93,9 @@ export class Parser {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
                     for (let link of links) {
                         console.log(link)
-                        let strippedLink = link[1].replace('\',\'\',\"', '').replace(/\?.*$/g, "")
+                        let strippedLink = link[1].replace('\',\'\',\"', '')
+                        if (!strippedLink.includes('rmr.rocks'))
+                            strippedLink = strippedLink.replace(/\?.*$/g, "")
                         console.log(strippedLink)
                         pages.push(strippedLink)
                     }
