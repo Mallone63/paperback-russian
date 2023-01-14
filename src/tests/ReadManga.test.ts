@@ -20,7 +20,8 @@ describe('ReadManga Tests', function () {
     // var mangaId = "klinok__rassekaiuchii_demonov__A5327";
     // var mangaId = "povest_o_lunnoi_princesse";
     // var mangaId = "stalnoi_alhimik__A5327";
-    var mangaId = "chelovek_benzopila_2";
+    // var mangaId = "chelovek_benzopila_2";
+    var mangaId = "van_pis__A5664"
     
 
 

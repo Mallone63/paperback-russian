@@ -21,7 +21,7 @@ const AdultManga_DOMAIN = 'https://mintmanga.live'
 export const ReadMangaInfo: SourceInfo = {
     version: '1.0.1',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.live',
+    description: 'Extension that pulls manga from readmanga.live and mintmanga.live',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
@@ -64,9 +64,8 @@ export class ReadManga extends Source {
             headers: this.constructHeaders({}),
             param: '?mtr=1'
         })
-        try {
-            data = await this.requestManager.schedule(request, 1)
-        } catch {
+        data = await this.requestManager.schedule(request, 1)
+        if (data.status === 404) {
             request = createRequestObject({
                 url: `${AdultManga_DOMAIN}/${mangaId}`,
                 method: 'GET',
@@ -75,6 +74,8 @@ export class ReadManga extends Source {
             }) 
             data = await this.requestManager.schedule(request, 1)
         }
+        console.log('getting manga details from ' + data.request.url)
+        console.log('response status ' + data.status)
         
         let $ = this.cheerio.load(data.data)
 
@@ -91,17 +92,17 @@ export class ReadManga extends Source {
             param: '?mtr=1'
         })
         let data
-        try {
-            data = await this.requestManager.schedule(request, 1)
-        } catch {
-            request = createRequestObject({
+        data = await this.requestManager.schedule(request, 1)
+        if (data.status === 404) {
+                request = createRequestObject({
                 url: `${AdultManga_DOMAIN}/${mangaId}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
                 param: '?mtr=1'
             }) 
             data = await this.requestManager.schedule(request, 1)
-        }        let $ = this.cheerio.load(data.data)
+        }        
+        let $ = this.cheerio.load(data.data)
 
         let chapters = this.parser.parseChapterList($, mangaId)
 
@@ -118,10 +119,9 @@ export class ReadManga extends Source {
         })
         
         let data
-        try {
-            data = await this.requestManager.schedule(request, 1)
-        } catch {
-            request = createRequestObject({
+        data = await this.requestManager.schedule(request, 1)
+        if (data.status === 404) {
+                request = createRequestObject({
                 url: `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
@@ -131,7 +131,7 @@ export class ReadManga extends Source {
         }
         let $ = this.cheerio.load(data.data)
         let pages = this.parser.parseChapterDetails($, `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`)
-        console.log('found pages: ', pages.length)
+        console.log('found pages: ' + pages.length)
         console.log(pages)
 
         return createChapterDetails({
