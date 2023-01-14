@@ -6165,18 +6165,16 @@ class Parser {
         return collectedIds;
     }
     parseTags($) {
-        var _a;
-        let tagSections = [createTagSection({ id: '0', label: 'genres', tags: [] })];
-        for (let obj of $('a', $('td')).toArray()) {
-            let id = (_a = $(obj).attr('href')) === null || _a === void 0 ? void 0 : _a.trim();
-            let genre = $(obj).text().trim();
-            if (!id || !genre)
+        var _a, _b;
+        const genres = [];
+        for (const obj of $('a', $('td')).toArray()) {
+            const id = (_a = $(obj).attr('href')) === null || _a === void 0 ? void 0 : _a.trim();
+            const label = (_b = $(obj).text().trim()) !== null && _b !== void 0 ? _b : '';
+            if (!id || !label)
                 continue;
-            console.log('tag found: ' + genre);
-            tagSections[0].tags.push(createTag({ id: id, label: genre }));
+            genres.push(createTag({ label, id }));
         }
-        console.log('found tags: ' + tagSections.length);
-        return tagSections;
+        return [createTagSection({ id: '0', label: 'genres', tags: genres })];
     }
     parseHomePageSection($, cheerio) {
         var _a, _b;
