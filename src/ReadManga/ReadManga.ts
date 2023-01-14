@@ -175,6 +175,7 @@ export class ReadManga extends Source {
         })
 
         const data = await this.requestManager.schedule(request, 1)
+        console.log('tags request ' + data.status + data.data)
         let $ = this.cheerio.load(data.data)
 
         return this.parser.parseTags($)

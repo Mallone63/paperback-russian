@@ -171,8 +171,10 @@ export class Parser {
             let id = $(obj).attr('href')?.trim()
             let genre = $(obj).text().trim()
             if (!id || !genre) continue
+            console.log('tag found: ' + genre)
             tagSections[0].tags.push(createTag({ id: id, label: genre }))
         }
+        console.log('found tags: ' + tagSections.length)
         return tagSections
     }
 
