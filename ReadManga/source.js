@@ -6172,8 +6172,10 @@ class Parser {
             let genre = $(obj).text().trim();
             if (!id || !genre)
                 continue;
+            console.log('tag found: ' + genre);
             tagSections[0].tags.push(createTag({ id: id, label: genre }));
         }
+        console.log('found tags: ' + tagSections.length);
         return tagSections;
     }
     parseHomePageSection($, cheerio) {
@@ -6373,6 +6375,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 method: 'GET'
             });
             const data = yield this.requestManager.schedule(request, 1);
+            console.log('tags request ' + data.status + data.data);
             let $ = this.cheerio.load(data.data);
             return this.parser.parseTags($);
         });
