@@ -6096,7 +6096,7 @@ class Parser {
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
                 console.log(script.children[0].data);
-                if (script.children[0].data.includes('rm_h.initReader(')) {
+                if (script.children[0].data.includes('rm_h.readerInit(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
                         console.log(link);
