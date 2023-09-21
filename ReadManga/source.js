@@ -6351,7 +6351,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
             let page = (_a = metadata === null || metadata === void 0 ? void 0 : metadata.page) !== null && _a !== void 0 ? _a : 1;
             let manga;
             let mData = { page: (1) };
-            for (let domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
+            for (let domain of [ReadManga_DOMAIN]) {
                 let request = this.constructSearchRequest((_b = query.title) !== null && _b !== void 0 ? _b : '', domain);
                 let data = yield this.requestManager.schedule(request, 1);
                 let $ = this.cheerio.load(data.data);
@@ -6508,12 +6508,12 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     constructSearchRequest(searchQuery, domain) {
         let isSearch = searchQuery != '';
-        let params = `?q=${searchQuery}&offset=&el_2155=&el_2143=&el_2142=&el_2156=&el_2146=&el_2152=&el_2158=&el_2118=&el_2154=&el_2119=&el_9450=&el_8032=&el_2137=&el_2136=&el_2147=&el_2126=&el_2133=&el_2135=&el_2151=&el_2130=&el_2144=&el_2121=&el_2124=&el_2159=&el_2122=&el_2128=&el_2134=&el_2139=&el_2129=&el_2138=&el_9561=&el_2153=&el_2150=&el_2125=&el_9560=&el_2131=&el_2127=&el_2149=&el_9577=&el_5685=&el_2141=&el_2161=&el_3515=&el_9451=&el_3001=&el_3002=&el_6180=&el_6179=&el_6181=&el_9578=&el_7290=&el_2160=&el_9795=&el_2157=&s_high_rate=&s_single=&s_mature=&s_completed=&s_translated=&s_abandoned_popular=&s_many_chapters=&s_wait_upload=&s_sale=&s_not_pessimized=&years=1950%2C2023&sortType=YEAR`;
+        let params = `?q=${searchQuery}&offset=&years=1950,2024&sortType=RATING`;
         return createRequestObject({
             url: `${domain}/search/advancedResults`,
             method: 'GET',
             headers: this.constructHeaders({}),
-            param: params,
+            param: encodeURI(params),
         });
     }
 }
