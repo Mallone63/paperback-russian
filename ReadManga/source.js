@@ -6230,7 +6230,7 @@ exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
 const ReadManga_DOMAIN = 'https://readmanga.live';
-const AdultManga_DOMAIN = 'https://mintmanga.live';
+const AdultManga_DOMAIN = 'https://23.mintmanga.live';
 exports.ReadMangaInfo = {
     version: '1.0.1',
     name: 'ReadManga',
@@ -6351,7 +6351,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
             let page = (_a = metadata === null || metadata === void 0 ? void 0 : metadata.page) !== null && _a !== void 0 ? _a : 1;
             let manga;
             let mData = { page: (1) };
-            for (let domain of [ReadManga_DOMAIN]) {
+            for (let domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
                 let request = this.constructSearchRequest((_b = query.title) !== null && _b !== void 0 ? _b : '', domain);
                 let data = yield this.requestManager.schedule(request, 1);
                 let $ = this.cheerio.load(data.data);
@@ -6508,12 +6508,13 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     constructSearchRequest(searchQuery, domain) {
         let isSearch = searchQuery != '';
-        let params = `?q=${searchQuery}&offset=&years=1950,2024&sortType=RATING`;
+        let params = `?q=${searchQuery}&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
         return createRequestObject({
             url: `${domain}/search/advancedResults`,
             method: 'GET',
             headers: this.constructHeaders({}),
             param: encodeURI(params),
+            options: { proxy: "http://45.131.7.248:80" }
         });
     }
 }
