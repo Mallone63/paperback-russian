@@ -6023,7 +6023,7 @@ const READMANGA_DOMAIN = 'https://readmanga.live/';
 class Parser {
     parseMangaDetails($, mangaId) {
         var _a, _b;
-        let titles = [$('span.name').text(), $('span.eng-name').text()];
+        let titles = [$('span.eng-name').text(), $('span.name').text()];
         let imageContainer = $('div.picture-fotorama');
         let image = (_a = $('img', imageContainer).attr('src')) !== null && _a !== void 0 ? _a : '';
         let status = paperback_extensions_common_1.MangaStatus.ONGOING, author = '', released, rating = 0, artist = '', views, summary;
