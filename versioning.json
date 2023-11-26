@@ -5,9 +5,9 @@
             "id": "ReadManga",
             "name": "ReadManga",
             "author": "mallone63",
-            "desc": "Extension that pulls manga from readmanga.live",
+            "desc": "Extension that pulls manga from readmanga.live and mintmanga.one",
             "website": "https://github.com/mallone63",
-            "version": "1.0.25",
+            "version": "1.0.26",
             "icon": "logo.png",
             "tags": [
                 {
