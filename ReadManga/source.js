@@ -6104,7 +6104,8 @@ class Parser {
                         if (!strippedLink.includes('rmr.rocks'))
                             strippedLink = strippedLink.replace(/\?.*$/g, "");
                         console.log(strippedLink);
-                        pages.push(strippedLink);
+                        if (!strippedLink.includes('auto/15/49/36'))
+                            pages.push(strippedLink);
                     }
                     break;
                 }
@@ -6158,7 +6159,7 @@ class Parser {
             }
             if (typeof id === 'undefined' || id.includes('/person/'))
                 continue;
-            if (!collectedIds.includes(id) && ids.includes(id) && updateTime.isBefore(lastUpdatedTime)) {
+            if (!collectedIds.includes(id) && ids.includes(id) && lastUpdatedTime.isBefore(updateTime)) {
                 collectedIds.push(id);
             }
         }
@@ -6230,11 +6231,11 @@ exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
 const ReadManga_DOMAIN = 'https://readmanga.live';
-const AdultManga_DOMAIN = 'https://mintmanga.com/';
+const AdultManga_DOMAIN = 'https://23.mintmanga.live';
 exports.ReadMangaInfo = {
     version: '1.0.1',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.live and mintmanga.com',
+    description: 'Extension that pulls manga from readmanga.live and mintmanga.live',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
