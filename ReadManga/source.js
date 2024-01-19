@@ -6150,27 +6150,6 @@ class Parser {
             return id;
         return null;
     }
-    // parseUpdatedManga($: CheerioSelector, cheerio: any, time: Date, ids: string[]): any {
-    //     let collectedIds: string[] = []
-    //     let directManga = $('div.tile')
-    //     let descArray = $('h3', directManga).toArray()
-    //     let timeArray = $('div.manga-updated.ribbon').toArray()
-    //     let index = 0
-    //     for (let obj of descArray) {
-    //         let id = $('a', $(obj)).attr('href')?.replace('/', '')
-    //         let updateTime = moment(timeArray[index]?.attribs['title'], 'HH:MM DD.MM')
-    //         let lastUpdatedTime = moment(time)
-    //         index++
-    //         if (!id) {
-    //             continue
-    //         }
-    //         if (typeof id === 'undefined' || id.includes('/person/')) continue
-    //         if (!collectedIds.includes(id) && ids.includes(id) && lastUpdatedTime.isBefore(updateTime) ) {
-    //             collectedIds.push(id)
-    //         }
-    //     }
-    //     return collectedIds
-    // }
     parseTags($) {
         var _a, _b;
         const genres = [];
@@ -6470,16 +6449,27 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     filterUpdatedManga(mangaUpdatesFoundCallback, time, ids) {
         return __awaiter(this, void 0, void 0, function* () {
-            // let page = 0
             let collectedIds = [];
             for (const id of ids) {
-                const request = createRequestObject({
-                    url: `${ReadManga_DOMAIN}/${id}`,
-                    method: 'GET',
-                    headers: this.constructHeaders({}),
-                    param: '?mtr=1'
-                });
-                let data = yield this.requestManager.schedule(request, 1);
+                let data;
+                try {
+                    const request = createRequestObject({
+                        url: `${ReadManga_DOMAIN}/${id}`,
+                        method: 'GET',
+                        headers: this.constructHeaders({}),
+                        param: '?mtr=1'
+                    });
+                    data = yield this.requestManager.schedule(request, 1);
+                }
+                catch (e) {
+                    const request = createRequestObject({
+                        url: `${AdultManga_DOMAIN}/${id}`,
+                        method: 'GET',
+                        headers: this.constructHeaders({}),
+                        param: '?mtr=1'
+                    });
+                    data = yield this.requestManager.schedule(request, 1);
+                }
                 let $ = this.cheerio.load(data.data);
                 if (this.parser.parseUpdatedManga($, this.cheerio, time, id) != null)
                     collectedIds.push(id);
@@ -6489,23 +6479,6 @@ class ReadManga extends paperback_extensions_common_1.Source {
             }));
         });
     }
-    // while (page < 420) {
-    //     const request = createRequestObject({
-    //         url: `${ReadManga_DOMAIN}/list`,
-    //         method: 'GET',
-    //         headers: this.constructHeaders({}),
-    //         param: `?sortType=DATE_UPDATE&offset=${page}`
-    //     })
-    //     page += 70
-    //     let data = await this.requestManager.schedule(request, 1)
-    //     let $ = this.cheerio.load(data.data)
-    //     let mangaIds = this.parser.parseUpdatedManga($, this.cheerio, time, ids)
-    //     if (mangaIds.length > 0) {
-    //         mangaUpdatesFoundCallback(createMangaUpdates({
-    //             ids: mangaIds
-    //         }))
-    //     }
-    // }
     constructHeaders(headers, refererPath) {
         if (this.userAgentRandomizer !== '') {
             headers["user-agent"] = this.userAgentRandomizer;
