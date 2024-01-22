@@ -6373,13 +6373,13 @@ class ReadManga extends paperback_extensions_common_1.Source {
         });
     }
     getSearchResults(query, metadata) {
-        var _a, _b;
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             let page = (_a = metadata === null || metadata === void 0 ? void 0 : metadata.page) !== null && _a !== void 0 ? _a : 1;
             let manga;
             let mData = { page: (1) };
             for (let domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
-                let request = this.constructSearchRequest((_b = query.title) !== null && _b !== void 0 ? _b : '', domain);
+                let request = this.constructSearchRequest(query, domain);
                 let data = yield this.requestManager.schedule(request, 1);
                 let $ = this.cheerio.load(data.data);
                 manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio);
