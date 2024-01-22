@@ -6547,22 +6547,18 @@ class ReadManga extends paperback_extensions_common_1.Source {
         }
     }
     constructSearchRequest(searchQuery, domain) {
-        if (searchQuery.title) {
-            let params = `?q=${searchQuery}&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
+        var _a;
+        if (searchQuery) {
+            let params = `?q=${(_a = searchQuery.title) !== null && _a !== void 0 ? _a : ''}&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
+            for (let tag in searchQuery.includedTags) {
+                params += `&${tag}=in`;
+            }
+            console.log('search parameters ' + params);
             return createRequestObject({
                 url: `${domain}/search/advancedResults`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
                 param: encodeURI(params)
-                // options: {proxy: "http://45.131.7.248:80"}
-            });
-        }
-        else if (searchQuery.includedTags) {
-            return createRequestObject({
-                url: `${domain}/list/tag/${searchQuery.includedTags[0]}`,
-                method: 'GET',
-                headers: this.constructHeaders({})
-                // param: encodeURI(params)
                 // options: {proxy: "http://45.131.7.248:80"}
             });
         }
