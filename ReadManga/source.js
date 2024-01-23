@@ -6402,6 +6402,8 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 else {
                     mData = undefined; // There are no more pages to continue on to, do not provide page metadata
                 }
+                if (mData == undefined && domain == ReadManga_DOMAIN) // Done with readmanga, now lets parse mint
+                    mData = { page: (page + 1) };
             }
             return createPagedResults({
                 results: manga,
