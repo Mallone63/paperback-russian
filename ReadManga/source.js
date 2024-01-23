@@ -6191,17 +6191,29 @@ class Parser {
             return id;
         return null;
     }
-    parseTags($) {
-        var _a, _b;
+    getTagsNames($) {
+        var _a;
         const genres = [];
         for (const obj of $('a', $('td')).toArray()) {
-            const id = (_a = $(obj).attr('href')) === null || _a === void 0 ? void 0 : _a.trim();
-            const label = (_b = $(obj).text().trim()) !== null && _b !== void 0 ? _b : '';
-            if (!id || !label)
+            const label = (_a = $(obj).text().trim()) !== null && _a !== void 0 ? _a : '';
+            if (!label)
                 continue;
-            genres.push(createTag({ label, id }));
+            genres.push(label);
         }
-        return [createTagSection({ id: '0', label: 'genres', tags: genres })];
+        return genres;
+    }
+    parseTags($, tags) {
+        var _a, _b;
+        const genres = [];
+        for (const obj of $('label > span').toArray()) {
+            const label = (_a = $(obj).attr('title')) === null || _a === void 0 ? void 0 : _a.trim();
+            if (label && tags.includes(label)) {
+                const id = (_b = $(obj).attr('title')) === null || _b === void 0 ? void 0 : _b.replace("'", "").replace(")", "").replace("rm_h.search.clickOption(this, ", "");
+                if (id)
+                    genres.push(createTag({ label, id }));
+            }
+        }
+        return [createTagSection({ id: '0', label: 'Теги', tags: genres })];
     }
     parseHomePageSection($, cheerio) {
         var _a, _b;
@@ -6402,7 +6414,16 @@ class ReadManga extends paperback_extensions_common_1.Source {
             const data = yield this.requestManager.schedule(request, 1);
             console.log('tags request ' + data.status + data.data);
             let $ = this.cheerio.load(data.data);
-            return this.parser.parseTags($);
+            let tags = this.parser.getTagsNames($);
+            const tagsIdRequest = createRequestObject({
+                url: `${ReadManga_DOMAIN}/search/advanced`,
+                method: 'GET',
+                headers: this.constructHeaders({})
+            });
+            const searchData = yield this.requestManager.schedule(request, 1);
+            console.log('tags request ' + data.status + data.data);
+            $ = this.cheerio.load(searchData.data);
+            return this.parser.parseTags($, tags);
         });
     }
     getHomePageSections(sectionCallback) {
@@ -6547,16 +6568,12 @@ class ReadManga extends paperback_extensions_common_1.Source {
         }
     }
     constructSearchRequest(searchQuery, domain) {
-        if (searchQuery.includedTags != undefined) {
-            return createRequestObject({
-                url: `${domain}${searchQuery.includedTags[0].id}`,
-                method: 'GET',
-                headers: this.constructHeaders({})
-                // options: {proxy: "http://45.131.7.248:80"}
-            });
-        }
         let params = `?&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
         params += searchQuery.title ? `&q=${searchQuery.title}` : `&q=`;
+        if (searchQuery.includedTags)
+            for (const tag of searchQuery.includedTags) {
+                params += `&${tag.id}=in`;
+            }
         console.log('search parameters ' + params);
         return createRequestObject({
             url: `${domain}/search/advancedResults`,
