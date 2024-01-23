@@ -6243,7 +6243,7 @@ class Parser {
         return tiles;
     }
     isLastPage($) {
-        return $('i.fa.fa-arrow-right').length > 0 ? false : true;
+        return $('i.fa.fa-arrow-right').toArray().length > 0 ? false : true;
     }
     decodeHTMLEntity(str) {
         return str.replace(/&#(\d+);/g, function (match, dec) {
@@ -6420,7 +6420,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 method: 'GET',
                 headers: this.constructHeaders({})
             });
-            const searchData = yield this.requestManager.schedule(request, 1);
+            const searchData = yield this.requestManager.schedule(tagsIdRequest, 1);
             console.log('tags request ' + data.status + data.data);
             $ = this.cheerio.load(searchData.data);
             return this.parser.parseTags($, tags);
