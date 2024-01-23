@@ -6386,25 +6386,24 @@ class ReadManga extends paperback_extensions_common_1.Source {
         });
     }
     getSearchResults(query, metadata) {
-        var _a;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             let page = (_a = metadata === null || metadata === void 0 ? void 0 : metadata.page) !== null && _a !== void 0 ? _a : 1;
+            let domain = (_b = metadata === null || metadata === void 0 ? void 0 : metadata.nextSource) !== null && _b !== void 0 ? _b : ReadManga_DOMAIN;
             let manga;
             let mData = undefined;
-            for (let domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
-                let request = this.constructSearchRequest(query, domain);
-                let data = yield this.requestManager.schedule(request, 1);
-                let $ = this.cheerio.load(data.data);
-                manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio);
-                if (!this.parser.isLastPage($)) {
-                    mData = { page: (page + 1) };
-                }
-                else {
-                    mData = undefined; // There are no more pages to continue on to, do not provide page metadata
-                }
-                if (mData == undefined && domain == ReadManga_DOMAIN) // Done with readmanga, now lets parse mint
-                    mData = { page: (page + 1) };
+            let request = this.constructSearchRequest(query, domain);
+            let data = yield this.requestManager.schedule(request, 1);
+            let $ = this.cheerio.load(data.data);
+            manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio);
+            if (!this.parser.isLastPage($)) {
+                mData = { page: (page + 1), nextSource: domain };
             }
+            else {
+                mData = undefined; // There are no more pages to continue on to, do not provide page metadata
+            }
+            if (mData == undefined && domain == ReadManga_DOMAIN) // Done with readmanga, now lets parse mint
+                mData = { page: (page + 1), nextSource: AdultManga_DOMAIN };
             return createPagedResults({
                 results: manga,
                 metadata: mData
