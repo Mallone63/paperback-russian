@@ -6547,26 +6547,24 @@ class ReadManga extends paperback_extensions_common_1.Source {
         }
     }
     constructSearchRequest(searchQuery, domain) {
-        if (searchQuery) {
-            if (searchQuery.includedTags) {
-                return createRequestObject({
-                    url: `${domain}${searchQuery.includedTags[0].id}`,
-                    method: 'GET',
-                    headers: this.constructHeaders({})
-                    // options: {proxy: "http://45.131.7.248:80"}
-                });
-            }
-            let params = `?&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
-            params += searchQuery.title ? `&q=${searchQuery.title}` : `&q=`;
-            console.log('search parameters ' + params);
+        if (searchQuery.includedTags != undefined) {
             return createRequestObject({
-                url: `${domain}/search/advancedResults`,
+                url: `${domain}${searchQuery.includedTags[0].id}`,
                 method: 'GET',
-                headers: this.constructHeaders({}),
-                param: encodeURI(params)
+                headers: this.constructHeaders({})
                 // options: {proxy: "http://45.131.7.248:80"}
             });
         }
+        let params = `?&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
+        params += searchQuery.title ? `&q=${searchQuery.title}` : `&q=`;
+        console.log('search parameters ' + params);
+        return createRequestObject({
+            url: `${domain}/search/advancedResults`,
+            method: 'GET',
+            headers: this.constructHeaders({}),
+            param: encodeURI(params)
+            // options: {proxy: "http://45.131.7.248:80"}
+        });
     }
 }
 exports.ReadManga = ReadManga;
