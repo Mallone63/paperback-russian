@@ -6083,15 +6083,14 @@ class Parser {
         let updateTime = new Date($(timeArray[0]).attr('data-date') || released);
         status = ((_b = $('p', 'div.subject-meta')) === null || _b === void 0 ? void 0 : _b.first().text().includes('завершено')) ? paperback_extensions_common_1.MangaStatus.COMPLETED : paperback_extensions_common_1.MangaStatus.ONGOING;
         views = 0;
-        let genres = $('span.elem_genre').toArray().slice(1);
-        for (let obj of genres) {
-            let id = $(obj).text().replace(',', '').trim();
-            let label = $(obj).text().replace(',', '').trim();
-            if (typeof id === 'undefined' || typeof label === 'undefined')
-                continue;
-            tagArray0 = [...tagArray0, createTag({ id: id, label: label })];
-        }
-        let tagSections = [createTagSection({ id: '0', label: 'genres', tags: tagArray0 })];
+        // let genres = $('span.elem_genre').toArray().slice(1)
+        // for (let obj of genres) {
+        //     let id = $(obj).text().replace(',', '').trim()
+        //     let label = $(obj).text().replace(',', '').trim()
+        //     if (typeof id === 'undefined' || typeof label === 'undefined') continue
+        //     tagArray0 = [...tagArray0, createTag({ id: id, label: label })]
+        // }
+        // let tagSections: TagSection[] = [createTagSection({ id: '0', label: 'Теги', tags: tagArray0 })]
         return createManga({
             id: mangaId,
             rating: rating,
@@ -6101,7 +6100,7 @@ class Parser {
             author: author.trim(),
             artist: artist.trim(),
             views: views,
-            tags: tagSections,
+            // tags: tagSections,
             desc: this.decodeHTMLEntity(summary !== null && summary !== void 0 ? summary : ''),
             lastUpdate: updateTime
         });
@@ -6202,17 +6201,19 @@ class Parser {
         }
         return genres;
     }
-    parseTags($, tags) {
-        var _a, _b;
+    parseTags($) {
         const genres = [];
-        for (const obj of $('label > span').toArray()) {
+        let idArray = $('li > input').toArray();
+        let labelArray = $('label > span').toArray();
+        labelArray.forEach((obj, index) => {
+            var _a, _b;
             const label = (_a = $(obj).attr('title')) === null || _a === void 0 ? void 0 : _a.trim();
-            if (label && tags.includes(label)) {
-                const id = (_b = $(obj).attr('title')) === null || _b === void 0 ? void 0 : _b.replace("'", "").replace(")", "").replace("rm_h.search.clickOption(this, ", "");
+            if (label) {
+                let id = (_b = $(idArray[index]).attr('id')) === null || _b === void 0 ? void 0 : _b.trim();
                 if (id)
                     genres.push(createTag({ label, id }));
             }
-        }
+        });
         return [createTagSection({ id: '0', label: 'Теги', tags: genres })];
     }
     parseHomePageSection($, cheerio) {
@@ -6407,23 +6408,22 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     getSearchTags() {
         return __awaiter(this, void 0, void 0, function* () {
-            const request = createRequestObject({
-                url: `${ReadManga_DOMAIN}/list/genres/sort_name`,
-                method: 'GET'
-            });
-            const data = yield this.requestManager.schedule(request, 1);
-            console.log('tags request ' + data.status + data.data);
-            let $ = this.cheerio.load(data.data);
-            let tags = this.parser.getTagsNames($);
+            // const request = createRequestObject({
+            //     url: `${ReadManga_DOMAIN}/list/genres/sort_name`,
+            //     method: 'GET'
+            // })
+            // const data = await this.requestManager.schedule(request, 1)
+            // console.log('tags request ' + data.status + data.data)
+            // let $ = this.cheerio.load(data.data)
+            // let tags: string[] = this.parser.getTagsNames($)
             const tagsIdRequest = createRequestObject({
                 url: `${ReadManga_DOMAIN}/search/advanced`,
                 method: 'GET',
                 headers: this.constructHeaders({})
             });
             const searchData = yield this.requestManager.schedule(tagsIdRequest, 1);
-            console.log('tags request ' + data.status + data.data);
-            $ = this.cheerio.load(searchData.data);
-            return this.parser.parseTags($, tags);
+            let $ = this.cheerio.load(searchData.data);
+            return this.parser.parseTags($);
         });
     }
     getHomePageSections(sectionCallback) {
