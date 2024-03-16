@@ -6270,11 +6270,11 @@ exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
 const ReadManga_DOMAIN = 'https://readmanga.live';
-const AdultManga_DOMAIN = 'https://mintmanga.com';
+const AdultManga_DOMAIN = 'https://seimanga.me';
 exports.ReadMangaInfo = {
     version: '1.0.1',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.live and mintmanga.com',
+    description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
