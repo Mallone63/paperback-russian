@@ -6363,7 +6363,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
             data = yield this.requestManager.schedule(request, 1);
             if (data.status === 404) {
                 request = createRequestObject({
-                    url: `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`,
+                    url: `${AdultManga_DOMAIN}/${chapterId}`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?mtr=1'
