@@ -6136,16 +6136,13 @@ class Parser {
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
                 console.log(script.children[0].data);
-                if (script.children[0].data.includes('rm_h.readerInit(')) {
+                if (script.children[0].data.includes('rm_h.readerDoInit(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
                         console.log(link);
                         let strippedLink = link[1].replace('\',\'\',\"', '');
-                        if (!strippedLink.includes('rmr.rocks'))
-                            strippedLink = strippedLink.replace(/\?.*$/g, "");
                         console.log(strippedLink);
-                        if (!strippedLink.includes('auto/15/49/36'))
-                            pages.push(strippedLink);
+                        pages.push(strippedLink);
                     }
                     break;
                 }
