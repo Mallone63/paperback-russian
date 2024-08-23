@@ -6142,7 +6142,8 @@ class Parser {
                         console.log(link);
                         let strippedLink = link[1].replace('\',\'\',\"', '');
                         console.log(strippedLink);
-                        pages.push(strippedLink);
+                        if (!strippedLink.includes('auto/15/49/36'))
+                            pages.push(strippedLink);
                     }
                     break;
                 }
