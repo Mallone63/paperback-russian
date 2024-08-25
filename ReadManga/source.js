@@ -6141,6 +6141,8 @@ class Parser {
                     for (let link of links) {
                         console.log(link);
                         let strippedLink = link[1].replace('\',\'\',\"', '');
+                        if (!strippedLink.includes('rmr.rocks'))
+                            strippedLink = strippedLink.replace(/\?.*$/g, "");
                         console.log(strippedLink);
                         if (!strippedLink.includes('auto/15/49/36'))
                             pages.push(strippedLink);
@@ -6364,13 +6366,22 @@ class ReadManga extends paperback_extensions_common_1.Source {
             data = yield this.requestManager.schedule(request, 1);
             if (data.status === 404) {
                 request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+            }
+            data = yield this.requestManager.schedule(request, 1);
+            if (data.status === 404) {
+                request = createRequestObject({
                     url: `${AdultManga_DOMAIN}/${chapterId}`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?mtr=1'
                 });
-                data = yield this.requestManager.schedule(request, 1);
             }
+            data = yield this.requestManager.schedule(request, 1);
             let $ = this.cheerio.load(data.data);
             let pages = this.parser.parseChapterDetails($, `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`);
             console.log('found pages: ' + pages.length);
