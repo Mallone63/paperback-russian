@@ -1,6 +1,4 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.Sources = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-
-},{}],2:[function(require,module,exports){
 //! moment.js
 //! version : 2.29.3
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -5687,150 +5685,80 @@
 
 })));
 
-},{}],3:[function(require,module,exports){
+},{}],2:[function(require,module,exports){
 "use strict";
 /**
  * Request objects hold information for a particular source (see sources for example)
  * This allows us to to use a generic api to make the calls against any source
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Source = void 0;
+exports.urlEncodeObject = exports.convertTime = exports.Source = void 0;
 class Source {
     constructor(cheerio) {
-        // <-----------        OPTIONAL METHODS        -----------> //
-        /**
-         * Manages the ratelimits and the number of requests that can be done per second
-         * This is also used to fetch pages when a chapter is downloading
-         */
-        this.requestManager = createRequestManager({
-            requestsPerSecond: 2.5,
-            requestTimeout: 5000
-        });
         this.cheerio = cheerio;
     }
     /**
-     * (OPTIONAL METHOD) This function is called when ANY request is made by the Paperback Application out to the internet.
-     * By modifying the parameter and returning it, the user can inject any additional headers, cookies, or anything else
-     * a source may need to load correctly.
-     * The most common use of this function is to add headers to image requests, since you cannot directly access these requests through
-     * the source implementation itself.
-     *
-     * NOTE: This does **NOT** influence any requests defined in the source implementation. This function will only influence requests
-     * which happen behind the scenes and are not defined in your source.
+     * @deprecated use {@link Source.getSearchResults getSearchResults} instead
      */
-    globalRequestHeaders() { return {}; }
-    globalRequestCookies() { return []; }
-    /**
-     * A stateful source may require user input.
-     * By supplying this value to the Source, the app will render your form to the user
-     * in the application settings.
-     */
-    getAppStatefulForm() { return createUserForm({ formElements: [] }); }
-    /**
-     * When the Advanced Search is rendered to the user, this skeleton defines what
-     * fields which will show up to the user, and returned back to the source
-     * when the request is made.
-     */
-    getAdvancedSearchForm() { return createUserForm({ formElements: [] }); }
-    /**
-     * (OPTIONAL METHOD) Given a manga ID, return a URL which Safari can open in a browser to display.
-     * @param mangaId
-     */
-    getMangaShareUrl(mangaId) { return null; }
-    /**
-     * If a source is secured by Cloudflare, this method should be filled out.
-     * By returning a request to the website, this source will attempt to create a session
-     * so that the source can load correctly.
-     * Usually the {@link Request} url can simply be the base URL to the source.
-     */
-    getCloudflareBypassRequest() { return null; }
-    /**
-     * (OPTIONAL METHOD) A function which communicates with a given source, and returns a list of all possible tags which the source supports.
-     * These tags are generic and depend on the source. They could be genres such as 'Isekai, Action, Drama', or they can be
-     * listings such as 'Completed, Ongoing'
-     * These tags must be tags which can be used in the {@link searchRequest} function to augment the searching capability of the application
-     */
-    getTags() { return Promise.resolve(null); }
-    /**
-     * (OPTIONAL METHOD) A function which should scan through the latest updates section of a website, and report back with a list of IDs which have been
-     * updated BEFORE the supplied timeframe.
-     * This function may have to scan through multiple pages in order to discover the full list of updated manga.
-     * Because of this, each batch of IDs should be returned with the mangaUpdatesFoundCallback. The IDs which have been reported for
-     * one page, should not be reported again on another page, unless the relevent ID has been detected again. You do not want to persist
-     * this internal list between {@link Request} calls
-     * @param mangaUpdatesFoundCallback A callback which is used to report a list of manga IDs back to the API
-     * @param time This function should find all manga which has been updated between the current time, and this parameter's reported time.
-     *             After this time has been passed, the system should stop parsing and return
-     */
-    filterUpdatedManga(mangaUpdatesFoundCallback, time, ids) { return Promise.resolve(); }
-    /**
-     * (OPTIONAL METHOD) A function which should readonly allf the available homepage sections for a given source, and return a {@link HomeSection} object.
-     * The sectionCallback is to be used for each given section on the website. This may include a 'Latest Updates' section, or a 'Hot Manga' section.
-     * It is recommended that before anything else in your source, you first use this sectionCallback and send it {@link HomeSection} objects
-     * which are blank, and have not had any requests done on them just yet. This way, you provide the App with the sections to render on screen,
-     * which then will be populated with each additional sectionCallback method called. This is optional, but recommended.
-     * @param sectionCallback A callback which is run for each independant HomeSection.
-     */
-    getHomePageSections(sectionCallback) { return Promise.resolve(); }
-    /**
-     * (OPTIONAL METHOD) This function will take a given homepageSectionId and metadata value, and with this information, should return
-     * all of the manga tiles supplied for the given state of parameters. Most commonly, the metadata value will contain some sort of page information,
-     * and this request will target the given page. (Incrementing the page in the response so that the next call will return relevent data)
-     * @param homepageSectionId The given ID to the homepage defined in {@link getHomePageSections} which this method is to readonly moreata about
-     * @param metadata This is a metadata parameter which is filled our in the {@link getHomePageSections}'s return
-     * function. Afterwards, if the metadata value returned in the {@link PagedResults} has been modified, the modified version
-     * will be supplied to this function instead of the origional {@link getHomePageSections}'s version.
-     * This is useful for keeping track of which page a user is on, pagnating to other pages as ViewMore is called multiple times.
-     */
-    getViewMoreItems(homepageSectionId, metadata) { return Promise.resolve(null); }
-    /**
-     * (OPTIONAL METHOD) This function is to return the entire library of a manga website, page by page.
-     * If there is an additional page which needs to be called, the {@link PagedResults} value should have it's metadata filled out
-     * with information needed to continue pulling information from this website.
-     * Note that if the metadata value of {@link PagedResults} is undefined, this method will not continue to run when the user
-     * attempts to readonly morenformation
-     * @param metadata Identifying information as to what the source needs to call in order to readonly theext batch of data
-     * of the directory. Usually this is a page counter.
-     */
-    getWebsiteMangaDirectory(metadata) { return Promise.resolve(null); }
-    // <-----------        PROTECTED METHODS        -----------> //
-    // Many sites use '[x] time ago' - Figured it would be good to handle these cases in general
-    convertTime(timeAgo) {
-        var _a;
-        let time;
-        let trimmed = Number(((_a = /\d*/.exec(timeAgo)) !== null && _a !== void 0 ? _a : [])[0]);
-        trimmed = (trimmed == 0 && timeAgo.includes('a')) ? 1 : trimmed;
-        if (timeAgo.includes('minutes')) {
-            time = new Date(Date.now() - trimmed * 60000);
-        }
-        else if (timeAgo.includes('hours')) {
-            time = new Date(Date.now() - trimmed * 3600000);
-        }
-        else if (timeAgo.includes('days')) {
-            time = new Date(Date.now() - trimmed * 86400000);
-        }
-        else if (timeAgo.includes('year') || timeAgo.includes('years')) {
-            time = new Date(Date.now() - trimmed * 31556952000);
-        }
-        else {
-            time = new Date(Date.now());
-        }
-        return time;
+    searchRequest(query, metadata) {
+        return this.getSearchResults(query, metadata);
     }
     /**
-     * When a function requires a POST body, it always should be defined as a JsonObject
-     * and then passed through this function to ensure that it's encoded properly.
-     * @param obj
+     * @deprecated use {@link Source.getSearchTags} instead
      */
-    urlEncodeObject(obj) {
-        let ret = {};
-        for (const entry of Object.entries(obj)) {
-            ret[encodeURIComponent(entry[0])] = encodeURIComponent(entry[1]);
-        }
-        return ret;
+    async getTags() {
+        // @ts-ignore
+        return this.getSearchTags?.();
     }
 }
 exports.Source = Source;
+// Many sites use '[x] time ago' - Figured it would be good to handle these cases in general
+function convertTime(timeAgo) {
+    let time;
+    let trimmed = Number((/\d*/.exec(timeAgo) ?? [])[0]);
+    trimmed = (trimmed == 0 && timeAgo.includes('a')) ? 1 : trimmed;
+    if (timeAgo.includes('minutes')) {
+        time = new Date(Date.now() - trimmed * 60000);
+    }
+    else if (timeAgo.includes('hours')) {
+        time = new Date(Date.now() - trimmed * 3600000);
+    }
+    else if (timeAgo.includes('days')) {
+        time = new Date(Date.now() - trimmed * 86400000);
+    }
+    else if (timeAgo.includes('year') || timeAgo.includes('years')) {
+        time = new Date(Date.now() - trimmed * 31556952000);
+    }
+    else {
+        time = new Date(Date.now());
+    }
+    return time;
+}
+exports.convertTime = convertTime;
+/**
+ * When a function requires a POST body, it always should be defined as a JsonObject
+ * and then passed through this function to ensure that it's encoded properly.
+ * @param obj
+ */
+function urlEncodeObject(obj) {
+    let ret = {};
+    for (const entry of Object.entries(obj)) {
+        ret[encodeURIComponent(entry[0])] = encodeURIComponent(entry[1]);
+    }
+    return ret;
+}
+exports.urlEncodeObject = urlEncodeObject;
+
+},{}],3:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Tracker = void 0;
+class Tracker {
+    constructor(cheerio) {
+        this.cheerio = cheerio;
+    }
+}
+exports.Tracker = Tracker;
 
 },{}],4:[function(require,module,exports){
 "use strict";
@@ -5842,12 +5770,13 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     o[k2] = m[k];
 }));
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./Source"), exports);
+__exportStar(require("./Tracker"), exports);
 
-},{"./Source":3}],5:[function(require,module,exports){
+},{"./Source":2,"./Tracker":3}],5:[function(require,module,exports){
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -5857,14 +5786,13 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     o[k2] = m[k];
 }));
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./base"), exports);
 __exportStar(require("./models"), exports);
-__exportStar(require("./APIWrapper"), exports);
 
-},{"./APIWrapper":1,"./base":4,"./models":26}],6:[function(require,module,exports){
+},{"./base":4,"./models":48}],6:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
@@ -5875,6 +5803,75 @@ arguments[4][6][0].apply(exports,arguments)
 },{"dup":6}],9:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
 },{"dup":6}],10:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],11:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],12:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],13:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],14:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],15:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],16:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],17:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],18:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],19:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],20:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],21:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],22:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],23:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],24:[function(require,module,exports){
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+__exportStar(require("./Button"), exports);
+__exportStar(require("./Form"), exports);
+__exportStar(require("./Header"), exports);
+__exportStar(require("./InputField"), exports);
+__exportStar(require("./Label"), exports);
+__exportStar(require("./Link"), exports);
+__exportStar(require("./MultilineLabel"), exports);
+__exportStar(require("./NavigationButton"), exports);
+__exportStar(require("./OAuthButton"), exports);
+__exportStar(require("./Section"), exports);
+__exportStar(require("./Select"), exports);
+__exportStar(require("./Switch"), exports);
+__exportStar(require("./WebViewButton"), exports);
+__exportStar(require("./FormRow"), exports);
+__exportStar(require("./Stepper"), exports);
+
+},{"./Button":9,"./Form":10,"./FormRow":11,"./Header":12,"./InputField":13,"./Label":14,"./Link":15,"./MultilineLabel":16,"./NavigationButton":17,"./OAuthButton":18,"./Section":19,"./Select":20,"./Stepper":21,"./Switch":22,"./WebViewButton":23}],25:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.HomeSectionType = void 0;
+var HomeSectionType;
+(function (HomeSectionType) {
+    HomeSectionType["singleRowNormal"] = "singleRowNormal";
+    HomeSectionType["singleRowLarge"] = "singleRowLarge";
+    HomeSectionType["doubleRow"] = "doubleRow";
+    HomeSectionType["featured"] = "featured";
+})(HomeSectionType = exports.HomeSectionType || (exports.HomeSectionType = {}));
+
+},{}],26:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LanguageCode = void 0;
@@ -5922,7 +5919,7 @@ var LanguageCode;
     LanguageCode["VIETNAMESE"] = "vn";
 })(LanguageCode = exports.LanguageCode || (exports.LanguageCode = {}));
 
-},{}],11:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MangaStatus = void 0;
@@ -5930,29 +5927,62 @@ var MangaStatus;
 (function (MangaStatus) {
     MangaStatus[MangaStatus["ONGOING"] = 1] = "ONGOING";
     MangaStatus[MangaStatus["COMPLETED"] = 0] = "COMPLETED";
+    MangaStatus[MangaStatus["UNKNOWN"] = 2] = "UNKNOWN";
+    MangaStatus[MangaStatus["ABANDONED"] = 3] = "ABANDONED";
+    MangaStatus[MangaStatus["HIATUS"] = 4] = "HIATUS";
 })(MangaStatus = exports.MangaStatus || (exports.MangaStatus = {}));
 
-},{}],12:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],13:[function(require,module,exports){
+},{"dup":6}],29:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],14:[function(require,module,exports){
+},{"dup":6}],30:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],15:[function(require,module,exports){
+},{"dup":6}],31:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],16:[function(require,module,exports){
+},{"dup":6}],32:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],17:[function(require,module,exports){
+},{"dup":6}],33:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],18:[function(require,module,exports){
+},{"dup":6}],34:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],19:[function(require,module,exports){
+},{"dup":6}],35:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],20:[function(require,module,exports){
+},{"dup":6}],36:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],21:[function(require,module,exports){
+},{"dup":6}],37:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],22:[function(require,module,exports){
+},{"dup":6}],38:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],39:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SearchOperator = void 0;
+var SearchOperator;
+(function (SearchOperator) {
+    SearchOperator["AND"] = "AND";
+    SearchOperator["OR"] = "OR";
+})(SearchOperator = exports.SearchOperator || (exports.SearchOperator = {}));
+
+},{}],40:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ContentRating = void 0;
+/**
+ * A content rating to be attributed to each source.
+ */
+var ContentRating;
+(function (ContentRating) {
+    ContentRating["EVERYONE"] = "EVERYONE";
+    ContentRating["MATURE"] = "MATURE";
+    ContentRating["ADULT"] = "ADULT";
+})(ContentRating = exports.ContentRating || (exports.ContentRating = {}));
+
+},{}],41:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],42:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],43:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TagType = void 0;
@@ -5970,13 +6000,15 @@ var TagType;
     TagType["RED"] = "danger";
 })(TagType = exports.TagType || (exports.TagType = {}));
 
-},{}],23:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],24:[function(require,module,exports){
+},{"dup":6}],45:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],25:[function(require,module,exports){
+},{"dup":6}],46:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],26:[function(require,module,exports){
+},{"dup":6}],47:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],48:[function(require,module,exports){
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -5986,12 +6018,13 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     o[k2] = m[k];
 }));
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./Chapter"), exports);
-__exportStar(require("./ChapterDetails"), exports);
 __exportStar(require("./HomeSection"), exports);
+__exportStar(require("./DynamicUI"), exports);
+__exportStar(require("./ChapterDetails"), exports);
 __exportStar(require("./Manga"), exports);
 __exportStar(require("./MangaTile"), exports);
 __exportStar(require("./RequestObject"), exports);
@@ -6006,11 +6039,17 @@ __exportStar(require("./ResponseObject"), exports);
 __exportStar(require("./RequestManager"), exports);
 __exportStar(require("./RequestHeaders"), exports);
 __exportStar(require("./SourceInfo"), exports);
-__exportStar(require("./TrackObject"), exports);
-__exportStar(require("./OAuth"), exports);
-__exportStar(require("./UserForm"), exports);
+__exportStar(require("./SourceStateManager"), exports);
+__exportStar(require("./RequestInterceptor"), exports);
+__exportStar(require("./TrackedManga"), exports);
+__exportStar(require("./SourceManga"), exports);
+__exportStar(require("./TrackedMangaChapterReadAction"), exports);
+__exportStar(require("./TrackerActionQueue"), exports);
+__exportStar(require("./SearchField"), exports);
+__exportStar(require("./RawData"), exports);
+__exportStar(require("./SearchFilter"), exports);
 
-},{"./Chapter":6,"./ChapterDetails":7,"./Constants":8,"./HomeSection":9,"./Languages":10,"./Manga":11,"./MangaTile":12,"./MangaUpdate":13,"./OAuth":14,"./PagedResults":15,"./RequestHeaders":16,"./RequestManager":17,"./RequestObject":18,"./ResponseObject":19,"./SearchRequest":20,"./SourceInfo":21,"./SourceTag":22,"./TagSection":23,"./TrackObject":24,"./UserForm":25}],27:[function(require,module,exports){
+},{"./Chapter":6,"./ChapterDetails":7,"./Constants":8,"./DynamicUI":24,"./HomeSection":25,"./Languages":26,"./Manga":27,"./MangaTile":28,"./MangaUpdate":29,"./PagedResults":30,"./RawData":31,"./RequestHeaders":32,"./RequestInterceptor":33,"./RequestManager":34,"./RequestObject":35,"./ResponseObject":36,"./SearchField":37,"./SearchFilter":38,"./SearchRequest":39,"./SourceInfo":40,"./SourceManga":41,"./SourceStateManager":42,"./SourceTag":43,"./TagSection":44,"./TrackedManga":45,"./TrackedMangaChapterReadAction":46,"./TrackerActionQueue":47}],49:[function(require,module,exports){
 "use strict";
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -6023,7 +6062,7 @@ const READMANGA_DOMAIN = 'https://readmanga.live/';
 class Parser {
     parseMangaDetails($, mangaId) {
         var _a, _b;
-        let titles = [$('span.name').text(), $('span.eng-name').text()];
+        let titles = [$('span.eng-name').text(), $('span.name').text()];
         let imageContainer = $('div.picture-fotorama');
         let image = (_a = $('img', imageContainer).attr('src')) !== null && _a !== void 0 ? _a : '';
         let status = paperback_extensions_common_1.MangaStatus.ONGOING, author = '', released, rating = 0, artist = '', views, summary;
@@ -6040,17 +6079,18 @@ class Parser {
             artist = author;
         summary = $("#tab-description > div").text();
         released = $('span.elem_year > a').text();
+        let timeArray = $('td.date').toArray();
+        let updateTime = new Date($(timeArray[0]).attr('data-date') || released);
         status = ((_b = $('p', 'div.subject-meta')) === null || _b === void 0 ? void 0 : _b.first().text().includes('завершено')) ? paperback_extensions_common_1.MangaStatus.COMPLETED : paperback_extensions_common_1.MangaStatus.ONGOING;
         views = 0;
-        let genres = $('span.elem_genre').toArray().slice(1);
-        for (let obj of genres) {
-            let id = $(obj).text().replace(',', '').trim();
-            let label = $(obj).text().replace(',', '').trim();
-            if (typeof id === 'undefined' || typeof label === 'undefined')
-                continue;
-            tagArray0 = [...tagArray0, createTag({ id: id, label: label })];
-        }
-        let tagSections = [createTagSection({ id: '0', label: 'genres', tags: tagArray0 })];
+        // let genres = $('span.elem_genre').toArray().slice(1)
+        // for (let obj of genres) {
+        //     let id = $(obj).text().replace(',', '').trim()
+        //     let label = $(obj).text().replace(',', '').trim()
+        //     if (typeof id === 'undefined' || typeof label === 'undefined') continue
+        //     tagArray0 = [...tagArray0, createTag({ id: id, label: label })]
+        // }
+        // let tagSections: TagSection[] = [createTagSection({ id: '0', label: 'Теги', tags: tagArray0 })]
         return createManga({
             id: mangaId,
             rating: rating,
@@ -6060,9 +6100,9 @@ class Parser {
             author: author.trim(),
             artist: artist.trim(),
             views: views,
-            tags: tagSections,
+            // tags: tagSections,
             desc: this.decodeHTMLEntity(summary !== null && summary !== void 0 ? summary : ''),
-            lastUpdate: released
+            lastUpdate: updateTime
         });
     }
     parseChapterList($, mangaId) {
@@ -6089,14 +6129,14 @@ class Parser {
         }
         return chapters;
     }
-    parseChapterDetails($, url) {
+    parseChapterDetails($) {
         let scripts = $('script').toArray();
         console.log('scripts found: ', scripts.length);
         let pages = [];
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
                 console.log(script.children[0].data);
-                if (script.children[0].data.includes('rm_h.initReader(')) {
+                if (script.children[0].data.includes('rm_h.readerDoInit(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
                         console.log(link);
@@ -6104,7 +6144,8 @@ class Parser {
                         if (!strippedLink.includes('rmr.rocks'))
                             strippedLink = strippedLink.replace(/\?.*$/g, "");
                         console.log(strippedLink);
-                        pages.push(strippedLink);
+                        if (!strippedLink.includes('auto/15/49/36'))
+                            pages.push(strippedLink);
                     }
                     break;
                 }
@@ -6141,42 +6182,39 @@ class Parser {
         }
         return mangaTiles;
     }
-    parseUpdatedManga($, cheerio, time, ids) {
-        var _a, _b;
-        let collectedIds = [];
-        let directManga = $('div.tile');
-        let descArray = $('h3', directManga).toArray();
-        let timeArray = $('div.manga-updated.ribbon').toArray();
-        let index = 0;
-        for (let obj of descArray) {
-            let id = (_a = $('a', $(obj)).attr('href')) === null || _a === void 0 ? void 0 : _a.replace('/', '');
-            let updateTime = moment_1.default((_b = timeArray[index]) === null || _b === void 0 ? void 0 : _b.attribs['title'], 'HH:MM DD.MM');
-            let lastUpdatedTime = moment_1.default(time);
-            index++;
-            if (!id) {
+    parseUpdatedManga($, cheerio, time, id) {
+        let timeArray = $('td.date').toArray();
+        let updateTime = moment_1.default($(timeArray[0]).attr('data-date'), 'DD.MM.YY');
+        let lastUpdatedTime = moment_1.default(time);
+        if (lastUpdatedTime.isBefore(updateTime))
+            return id;
+        return null;
+    }
+    getTagsNames($) {
+        var _a;
+        const genres = [];
+        for (const obj of $('a', $('td')).toArray()) {
+            const label = (_a = $(obj).text().trim()) !== null && _a !== void 0 ? _a : '';
+            if (!label)
                 continue;
-            }
-            if (typeof id === 'undefined' || id.includes('/person/'))
-                continue;
-            if (!collectedIds.includes(id) && ids.includes(id) && updateTime.isBefore(lastUpdatedTime)) {
-                collectedIds.push(id);
-            }
+            genres.push(label);
         }
-        return collectedIds;
+        return genres;
     }
     parseTags($) {
-        var _a;
-        let tagSections = [createTagSection({ id: '0', label: 'genres', tags: [] })];
-        for (let obj of $('a', $('td')).toArray()) {
-            let id = (_a = $(obj).attr('href')) === null || _a === void 0 ? void 0 : _a.trim();
-            let genre = $(obj).text().trim();
-            if (!id || !genre)
-                continue;
-            console.log('tag found: ' + genre);
-            tagSections[0].tags.push(createTag({ id: id, label: genre }));
-        }
-        console.log('found tags: ' + tagSections.length);
-        return tagSections;
+        const genres = [];
+        let idArray = $('li > input').toArray();
+        let labelArray = $('label > span').toArray();
+        labelArray.forEach((obj, index) => {
+            var _a, _b;
+            const label = (_a = $(obj).attr('title')) === null || _a === void 0 ? void 0 : _a.trim();
+            if (label) {
+                let id = (_b = $(idArray[index]).attr('id')) === null || _b === void 0 ? void 0 : _b.trim();
+                if (id)
+                    genres.push(createTag({ label, id }));
+            }
+        });
+        return [createTagSection({ id: '0', label: 'Теги', tags: genres })];
     }
     parseHomePageSection($, cheerio) {
         var _a, _b;
@@ -6206,7 +6244,7 @@ class Parser {
         return tiles;
     }
     isLastPage($) {
-        return $('i.fa.fa-arrow-right').length > 0 ? false : true;
+        return $('i.fa.fa-arrow-right').toArray().length > 0 ? false : true;
     }
     decodeHTMLEntity(str) {
         return str.replace(/&#(\d+);/g, function (match, dec) {
@@ -6216,7 +6254,7 @@ class Parser {
 }
 exports.Parser = Parser;
 
-},{"moment":2,"paperback-extensions-common":5}],28:[function(require,module,exports){
+},{"moment":1,"paperback-extensions-common":5}],50:[function(require,module,exports){
 "use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -6232,15 +6270,15 @@ exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
 const ReadManga_DOMAIN = 'https://readmanga.live';
-const AdultManga_DOMAIN = 'https://mintmanga.live';
+const AdultManga_DOMAIN = 'https://1.seimanga.me';
 exports.ReadMangaInfo = {
     version: '1.0.1',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.live and mintmanga.live',
+    description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
-    hentaiSource: false,
+    contentRating: paperback_extensions_common_1.ContentRating.EVERYONE,
     websiteBaseURL: ReadManga_DOMAIN,
     sourceTags: [
         {
@@ -6277,15 +6315,6 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 param: '?mtr=1'
             });
             data = yield this.requestManager.schedule(request, 1);
-            if (data.status === 404) {
-                request = createRequestObject({
-                    url: `${AdultManga_DOMAIN}/${mangaId}`,
-                    method: 'GET',
-                    headers: this.constructHeaders({}),
-                    param: '?mtr=1'
-                });
-                data = yield this.requestManager.schedule(request, 1);
-            }
             console.log('getting manga details from ' + data.request.url);
             console.log('response status ' + data.status);
             let $ = this.cheerio.load(data.data);
@@ -6302,15 +6331,6 @@ class ReadManga extends paperback_extensions_common_1.Source {
             });
             let data;
             data = yield this.requestManager.schedule(request, 1);
-            if (data.status === 404) {
-                request = createRequestObject({
-                    url: `${AdultManga_DOMAIN}/${mangaId}`,
-                    method: 'GET',
-                    headers: this.constructHeaders({}),
-                    param: '?mtr=1'
-                });
-                data = yield this.requestManager.schedule(request, 1);
-            }
             let $ = this.cheerio.load(data.data);
             let chapters = this.parser.parseChapterList($, mangaId);
             return chapters;
@@ -6318,25 +6338,25 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     getChapterDetails(mangaId, chapterId) {
         return __awaiter(this, void 0, void 0, function* () {
-            let request = createRequestObject({
-                url: `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
-                method: 'GET',
-                headers: this.constructHeaders({}),
-                param: '?mtr=1'
-            });
+            let sources = [`${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
+                `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`, `${AdultManga_DOMAIN}/${chapterId}`];
+            let pages = [];
+            let request;
             let data;
-            data = yield this.requestManager.schedule(request, 1);
-            if (data.status === 404) {
+            let $;
+            for (let source of sources) {
                 request = createRequestObject({
-                    url: `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`,
+                    url: `${source}`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?mtr=1'
                 });
                 data = yield this.requestManager.schedule(request, 1);
+                $ = this.cheerio.load(data.data);
+                pages.concat(this.parser.parseChapterDetails($));
+                if (pages.length > 0)
+                    break;
             }
-            let $ = this.cheerio.load(data.data);
-            let pages = this.parser.parseChapterDetails($, `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`);
             console.log('found pages: ' + pages.length);
             console.log(pages);
             return createChapterDetails({
@@ -6347,36 +6367,40 @@ class ReadManga extends paperback_extensions_common_1.Source {
             });
         });
     }
-    searchRequest(query, metadata) {
+    getSearchResults(query, metadata) {
         var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             let page = (_a = metadata === null || metadata === void 0 ? void 0 : metadata.page) !== null && _a !== void 0 ? _a : 1;
+            let domain = (_b = metadata === null || metadata === void 0 ? void 0 : metadata.nextSource) !== null && _b !== void 0 ? _b : ReadManga_DOMAIN;
             let manga;
-            let mData = { page: (1) };
-            for (let domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
-                let request = this.constructSearchRequest((_b = query.title) !== null && _b !== void 0 ? _b : '', domain);
-                let data = yield this.requestManager.schedule(request, 1);
-                let $ = this.cheerio.load(data.data);
-                manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio);
-                if (!this.parser.isLastPage($)) {
-                    mData = { page: (page + 1) };
-                }
+            let mData = undefined;
+            let request = this.constructSearchRequest(query, domain);
+            let data = yield this.requestManager.schedule(request, 1);
+            let $ = this.cheerio.load(data.data);
+            manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio);
+            if (!this.parser.isLastPage($)) {
+                mData = { page: (page + 1), nextSource: domain };
             }
+            else {
+                mData = undefined; // There are no more pages to continue on to, do not provide page metadata
+            }
+            if (mData == undefined && domain == ReadManga_DOMAIN) // Done with readmanga, now lets parse mint
+                mData = { page: (page + 1), nextSource: AdultManga_DOMAIN };
             return createPagedResults({
                 results: manga,
                 metadata: mData
             });
         });
     }
-    getTags() {
+    getSearchTags() {
         return __awaiter(this, void 0, void 0, function* () {
-            const request = createRequestObject({
-                url: `${ReadManga_DOMAIN}/list/genres/sort_name`,
-                method: 'GET'
+            const tagsIdRequest = createRequestObject({
+                url: `${ReadManga_DOMAIN}/search/advanced`,
+                method: 'GET',
+                headers: this.constructHeaders({})
             });
-            const data = yield this.requestManager.schedule(request, 1);
-            console.log('tags request ' + data.status + data.data);
-            let $ = this.cheerio.load(data.data);
+            const searchData = yield this.requestManager.schedule(tagsIdRequest, 1);
+            let $ = this.cheerio.load(searchData.data);
             return this.parser.parseTags($);
         });
     }
@@ -6406,6 +6430,19 @@ class ReadManga extends paperback_extensions_common_1.Source {
                     section: createHomeSection({
                         id: '1',
                         title: 'Новинки',
+                        view_more: true,
+                    }),
+                },
+                {
+                    request: createRequestObject({
+                        url: `${AdultManga_DOMAIN}/list`,
+                        method: 'GET',
+                        headers: this.constructHeaders({}),
+                        param: '?sortType=rate'
+                    }),
+                    section: createHomeSection({
+                        id: '2',
+                        title: 'Манга доля взрослых',
                         view_more: true,
                     }),
                 },
@@ -6440,7 +6477,10 @@ class ReadManga extends paperback_extensions_common_1.Source {
                     break;
                 }
                 default:
-                    return Promise.resolve(null);
+                    return Promise.resolve({
+                        results: [],
+                        metadata: {}
+                    });
             }
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}${webPage}`,
@@ -6465,24 +6505,34 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     filterUpdatedManga(mangaUpdatesFoundCallback, time, ids) {
         return __awaiter(this, void 0, void 0, function* () {
-            let page = 0;
-            while (page < 420) {
-                const request = createRequestObject({
-                    url: `${ReadManga_DOMAIN}/list`,
-                    method: 'GET',
-                    headers: this.constructHeaders({}),
-                    param: `?sortType=DATE_UPDATE&offset=${page}`
-                });
-                page += 70;
-                let data = yield this.requestManager.schedule(request, 1);
-                let $ = this.cheerio.load(data.data);
-                let mangaIds = this.parser.parseUpdatedManga($, this.cheerio, time, ids);
-                if (mangaIds.length > 0) {
-                    mangaUpdatesFoundCallback(createMangaUpdates({
-                        ids: mangaIds
-                    }));
+            let collectedIds = [];
+            for (const id of ids) {
+                let data;
+                try {
+                    const request = createRequestObject({
+                        url: `${ReadManga_DOMAIN}/${id}`,
+                        method: 'GET',
+                        headers: this.constructHeaders({}),
+                        param: '?mtr=1'
+                    });
+                    data = yield this.requestManager.schedule(request, 1);
                 }
+                catch (e) {
+                    const request = createRequestObject({
+                        url: `${AdultManga_DOMAIN}/${id}`,
+                        method: 'GET',
+                        headers: this.constructHeaders({}),
+                        param: '?mtr=1'
+                    });
+                    data = yield this.requestManager.schedule(request, 1);
+                }
+                let $ = this.cheerio.load(data.data);
+                if (this.parser.parseUpdatedManga($, this.cheerio, time, id) != null)
+                    collectedIds.push(id);
             }
+            mangaUpdatesFoundCallback(createMangaUpdates({
+                ids: collectedIds
+            }));
         });
     }
     constructHeaders(headers, refererPath) {
@@ -6509,87 +6559,22 @@ class ReadManga extends paperback_extensions_common_1.Source {
         }
     }
     constructSearchRequest(searchQuery, domain) {
-        let isSearch = searchQuery != '';
-        let data = {
-            "q": `${searchQuery}`,
-            "el_1346": ``,
-            "el_1334": ``,
-            "el_1333": ``,
-            "el_1347": ``,
-            "el_1337": ``,
-            "el_1343": ``,
-            "el_1349": ``,
-            "el_1310": ``,
-            "el_5229": ``,
-            "el_1311": ``,
-            "el_6420": ``,
-            "el_1351": ``,
-            "el_1328": ``,
-            "el_1318": ``,
-            "el_1325": ``,
-            "el_1327": ``,
-            "el_1342": ``,
-            "el_1322": ``,
-            "el_1335": ``,
-            "el_1313": ``,
-            "el_1316": ``,
-            "el_1350": ``,
-            "el_1314": ``,
-            "el_1320": ``,
-            "el_1326": ``,
-            "el_1330": ``,
-            "el_1321": ``,
-            "el_1329": ``,
-            "el_6631": ``,
-            "el_1344": ``,
-            "el_1341": ``,
-            "el_1317": ``,
-            "el_6632": ``,
-            "el_1323": ``,
-            "el_1319": ``,
-            "el_1340": ``,
-            "el_1354": ``,
-            "el_1315": ``,
-            "el_1336": ``,
-            "el_6637": ``,
-            "el_2220": ``,
-            "el_1332": ``,
-            "el_2741": ``,
-            "el_1903": ``,
-            "el_6421": ``,
-            "el_1873": ``,
-            "el_1875": ``,
-            "el_5688": ``,
-            "el_3969": ``,
-            "el_3968": ``,
-            "el_3990": ``,
-            "el_6641": ``,
-            "el_4614": ``,
-            "el_1355": ``,
-            "el_1874": ``,
-            "el_1348": ``,
-            "s_high_rate": ``,
-            "s_single": ``,
-            "s_mature": ``,
-            "s_completed": ``,
-            "s_translated": ``,
-            "s_abandoned_popular": ``,
-            "s_many_chapters": ``,
-            "s_wait_upload": ``,
-            "s_not_pessimized": ``,
-            "years": `1961,2023`,
-            "sortType": `RATING`,
-            " ": `Искать`,
-        };
+        let params = `?&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
+        params += searchQuery.title ? `&q=${searchQuery.title}` : `&q=`;
+        if (searchQuery.includedTags)
+            for (const tag of searchQuery.includedTags) {
+                params += `&${tag.id}=in`;
+            }
+        console.log('search parameters ' + params);
         return createRequestObject({
-            url: `${domain}/search/advanced`,
-            method: 'POST',
+            url: `${domain}/search/advancedResults`,
+            method: 'GET',
             headers: this.constructHeaders({}),
-            data: this.urlEncodeObject(data),
+            param: encodeURI(params)
         });
     }
 }
 exports.ReadManga = ReadManga;
 
-},{"./Parser":27,"paperback-extensions-common":5}]},{},[28])(28)
+},{"./Parser":49,"paperback-extensions-common":5}]},{},[50])(50)
 });
