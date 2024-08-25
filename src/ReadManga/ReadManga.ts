@@ -21,7 +21,7 @@ const ReadManga_DOMAIN = 'https://readmanga.live'
 const AdultManga_DOMAIN = 'https://1.seimanga.me'
 
 export const ReadMangaInfo: SourceInfo = {
-    version: '1.0.1',
+    version: '1.1.30',
     name: 'ReadManga',
     description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
@@ -110,7 +110,7 @@ export class ReadManga extends Source {
             })
             data = await this.requestManager.schedule(request, 1)
             $ = this.cheerio.load(data.data)
-            pages.concat(this.parser.parseChapterDetails($))
+            pages = this.parser.parseChapterDetails($)
             if (pages.length > 0) break
         }
         console.log('found pages: ' + pages.length)
