@@ -1,0 +1,3 @@
+[submodule "bundles/paperback-release"]
+	path = bundles
+	url = https://github.com/Mallone63/paperback-russian.git

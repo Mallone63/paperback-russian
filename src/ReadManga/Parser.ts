@@ -7,7 +7,7 @@ export class Parser {
 
     parseMangaDetails($: CheerioSelector, mangaId: string): Manga {
 
-        let titles = [$('span.name').text(), $('span.eng-name').text()]
+        let titles = [$('span.eng-name').text(), $('span.name').text()]
         let imageContainer = $('div.picture-fotorama')
         let image = $('img', imageContainer).attr('src') ?? ''
 
@@ -25,18 +25,22 @@ export class Parser {
         if (artist === '') artist = author
         summary = $("#tab-description > div").text()
         released = $('span.elem_year > a').text()
+        let timeArray = $('td.date').toArray()
+
+        
+        let updateTime = new Date($(timeArray[0]).attr('data-date') || released)
 
         status = $('p', 'div.subject-meta')?.first().text().includes('завершено') ? MangaStatus.COMPLETED : MangaStatus.ONGOING
         views = 0
 
-        let genres = $('span.elem_genre').toArray().slice(1)
-        for (let obj of genres) {
-            let id = $(obj).text().replace(',', '').trim()
-            let label = $(obj).text().replace(',', '').trim()
-            if (typeof id === 'undefined' || typeof label === 'undefined') continue
-            tagArray0 = [...tagArray0, createTag({ id: id, label: label })]
-        }
-        let tagSections: TagSection[] = [createTagSection({ id: '0', label: 'genres', tags: tagArray0 })]
+        // let genres = $('span.elem_genre').toArray().slice(1)
+        // for (let obj of genres) {
+        //     let id = $(obj).text().replace(',', '').trim()
+        //     let label = $(obj).text().replace(',', '').trim()
+        //     if (typeof id === 'undefined' || typeof label === 'undefined') continue
+        //     tagArray0 = [...tagArray0, createTag({ id: id, label: label })]
+        // }
+        // let tagSections: TagSection[] = [createTagSection({ id: '0', label: 'Теги', tags: tagArray0 })]
         return createManga({
             id: mangaId,
             rating: rating,
@@ -46,9 +50,9 @@ export class Parser {
             author: author.trim(),
             artist: artist.trim(),
             views: views,
-            tags: tagSections,
+            // tags: tagSections,
             desc: this.decodeHTMLEntity(summary ?? ''),
-            lastUpdate: released
+            lastUpdate: updateTime
         })
     }
 
@@ -82,14 +86,14 @@ export class Parser {
 
 
 
-    parseChapterDetails($: CheerioSelector, url: string): string[] {
+    parseChapterDetails($: CheerioSelector): string[] {
         let scripts = $('script').toArray()
         console.log('scripts found: ', scripts.length)
         let pages = []
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
                 console.log(script.children[0].data)
-                if (script.children[0].data.includes('rm_h.initReader(')) {
+                if (script.children[0].data.includes('rm_h.readerDoInit(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
                     for (let link of links) {
                         console.log(link)
@@ -97,7 +101,8 @@ export class Parser {
                         if (!strippedLink.includes('rmr.rocks'))
                             strippedLink = strippedLink.replace(/\?.*$/g, "")
                         console.log(strippedLink)
-                        pages.push(strippedLink)
+                        if (!strippedLink.includes('auto/15/49/36')) 
+                            pages.push(strippedLink)
                     }
                     break
                 }
@@ -138,44 +143,44 @@ export class Parser {
     }
 
 
-    parseUpdatedManga($: CheerioSelector, cheerio: any, time: Date, ids: string[]): any {
-        let collectedIds: string[] = []
+    parseUpdatedManga($: CheerioSelector, cheerio: any, time: Date, id: string): any {
+        let timeArray = $('td.date').toArray()
 
-        let directManga = $('div.tile')
-        let descArray = $('h3', directManga).toArray()
-        let timeArray = $('div.manga-updated.ribbon').toArray()
-
-        let index = 0
-        for (let obj of descArray) {
-            let id = $('a', $(obj)).attr('href')?.replace('/', '')
-            let updateTime = moment(timeArray[index]?.attribs['title'], 'HH:MM DD.MM')
-            let lastUpdatedTime = moment(time)
-            index++
-            if (!id) {
-                continue
-            }
-            if (typeof id === 'undefined' || id.includes('/person/')) continue
-            if (!collectedIds.includes(id) && ids.includes(id) && updateTime.isBefore(lastUpdatedTime) ) {
-                collectedIds.push(id)
-            }
-        }
-        return collectedIds
+        
+        let updateTime = moment($(timeArray[0]).attr('data-date'), 'DD.MM.YY')
+        
+        let lastUpdatedTime = moment(time)
+        if (lastUpdatedTime.isBefore(updateTime))
+            return id
+        return null
     }
 
 
+    getTagsNames($: CheerioSelector): string[] {
+
+        const genres: string[] = []
+        for (const obj of $('a', $('td')).toArray()) {
+            const label = $(obj).text().trim() ?? ''
+            if (!label) continue
+            genres.push(label)
+        }
+        return genres
+    }
+
     parseTags($: CheerioSelector): TagSection[] {
 
-        let tagSections: TagSection[] = [createTagSection({ id: '0', label: 'genres', tags: [] })]
-
-        for (let obj of $('a', $('td')).toArray()) {
-            let id = $(obj).attr('href')?.trim()
-            let genre = $(obj).text().trim()
-            if (!id || !genre) continue
-            console.log('tag found: ' + genre)
-            tagSections[0].tags.push(createTag({ id: id, label: genre }))
-        }
-        console.log('found tags: ' + tagSections.length)
-        return tagSections
+        const genres: Tag[] = []
+        let idArray = $('li > input').toArray()
+        let labelArray = $('label > span').toArray()
+        labelArray.forEach((obj, index) => {
+            const label = $(obj).attr('title')?.trim()
+            if (label) {
+                let id = $(idArray[index]).attr('id')?.trim()
+                if (id)
+                    genres.push(createTag({ label, id }))
+            }
+        })
+        return [createTagSection({ id: '0', label: 'Теги', tags: genres })]
     }
 
     parseHomePageSection($: CheerioSelector, cheerio: any): MangaTile[] {
@@ -210,7 +215,7 @@ export class Parser {
 
 
     isLastPage($: CheerioSelector): boolean {
-        return $('i.fa.fa-arrow-right').length > 0 ? false : true
+        return $('i.fa.fa-arrow-right').toArray().length > 0 ? false : true
     }
 
 

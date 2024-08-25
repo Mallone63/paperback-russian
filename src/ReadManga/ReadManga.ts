@@ -11,21 +11,23 @@ import {
     SourceInfo,
     TagSection,
     TagType,
+    ContentRating,
+    Tag
 } from "paperback-extensions-common"
 
 import { Parser, } from './Parser'
 
 const ReadManga_DOMAIN = 'https://readmanga.live'
-const AdultManga_DOMAIN = 'https://mintmanga.live'
+const AdultManga_DOMAIN = 'https://1.seimanga.me'
 
 export const ReadMangaInfo: SourceInfo = {
     version: '1.0.1',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.live and mintmanga.live',
+    description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
-    hentaiSource: false,
+    contentRating: ContentRating.EVERYONE,
     websiteBaseURL: ReadManga_DOMAIN,
     sourceTags: [
         {
@@ -52,7 +54,7 @@ export class ReadManga extends Source {
     parser = new Parser()
 
 
-    getMangaShareUrl(mangaId: string): string | null {
+    getMangaShareUrl(mangaId: string): string {
         return `${ReadManga_DOMAIN}/${mangaId}`
     }
 
@@ -65,15 +67,6 @@ export class ReadManga extends Source {
             param: '?mtr=1'
         })
         data = await this.requestManager.schedule(request, 1)
-        if (data.status === 404) {
-            request = createRequestObject({
-                url: `${AdultManga_DOMAIN}/${mangaId}`,
-                method: 'GET',
-                headers: this.constructHeaders({}),
-                param: '?mtr=1'
-            }) 
-            data = await this.requestManager.schedule(request, 1)
-        }
         console.log('getting manga details from ' + data.request.url)
         console.log('response status ' + data.status)
         
@@ -93,15 +86,6 @@ export class ReadManga extends Source {
         })
         let data
         data = await this.requestManager.schedule(request, 1)
-        if (data.status === 404) {
-                request = createRequestObject({
-                url: `${AdultManga_DOMAIN}/${mangaId}`,
-                method: 'GET',
-                headers: this.constructHeaders({}),
-                param: '?mtr=1'
-            }) 
-            data = await this.requestManager.schedule(request, 1)
-        }        
         let $ = this.cheerio.load(data.data)
 
         let chapters = this.parser.parseChapterList($, mangaId)
@@ -111,26 +95,24 @@ export class ReadManga extends Source {
 
 
     async getChapterDetails(mangaId: string, chapterId: string): Promise<ChapterDetails> {
-        let request = createRequestObject({
-            url: `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
-            method: 'GET',
-            headers: this.constructHeaders({}),
-            param: '?mtr=1'
-        })
-        
+        let sources = [`${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
+            `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`, `${AdultManga_DOMAIN}/${chapterId}`]
+        let pages: string[] = []
+        let request
         let data
-        data = await this.requestManager.schedule(request, 1)
-        if (data.status === 404) {
-                request = createRequestObject({
-                url: `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`,
+        let $
+        for (let source of sources) {
+            request = createRequestObject({
+                url: `${source}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
                 param: '?mtr=1'
-            }) 
+            })
             data = await this.requestManager.schedule(request, 1)
+            $ = this.cheerio.load(data.data)
+            pages.concat(this.parser.parseChapterDetails($))
+            if (pages.length > 0) break
         }
-        let $ = this.cheerio.load(data.data)
-        let pages = this.parser.parseChapterDetails($, `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`)
         console.log('found pages: ' + pages.length)
         console.log(pages)
 
@@ -144,21 +126,26 @@ export class ReadManga extends Source {
 
 
 
-    async searchRequest(query: SearchRequest, metadata: any,): Promise<PagedResults> {
+    async getSearchResults(query: SearchRequest, metadata: any,): Promise<PagedResults> {
         let page: number = metadata?.page ?? 1
+        let domain = metadata?.nextSource ?? ReadManga_DOMAIN
 
-        let manga
-        let mData = { page: (1) }
-        for (let domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
-            let request = this.constructSearchRequest(query.title ?? '', domain)
+        let manga: any
+        let mData = undefined
 
-            let data = await this.requestManager.schedule(request, 1)
-            let $ = this.cheerio.load(data.data)
-            manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio)
-            if (!this.parser.isLastPage($)) {
-                mData = { page: (page + 1) }
-            }
+        let request = this.constructSearchRequest(query, domain)
+
+        let data = await this.requestManager.schedule(request, 1)
+        let $ = this.cheerio.load(data.data)
+        manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio)
+        if (!this.parser.isLastPage($)) {
+            mData = { page: (page + 1), nextSource: domain }
+        } else {
+            mData = undefined  // There are no more pages to continue on to, do not provide page metadata
         }
+        if (mData == undefined && domain == ReadManga_DOMAIN) // Done with readmanga, now lets parse mint
+            mData = { page: (page + 1), nextSource: AdultManga_DOMAIN }
+
 
         return createPagedResults({
             results: manga,
@@ -168,16 +155,14 @@ export class ReadManga extends Source {
     }
 
 
-    async getTags(): Promise<TagSection[] | null> {
-        const request = createRequestObject({
-            url: `${ReadManga_DOMAIN}/list/genres/sort_name`,
-            method: 'GET'
+    async getSearchTags(): Promise<TagSection[]> {
+        const tagsIdRequest = createRequestObject({
+            url: `${ReadManga_DOMAIN}/search/advanced`,
+            method: 'GET',
+            headers: this.constructHeaders({})
         })
-
-        const data = await this.requestManager.schedule(request, 1)
-        console.log('tags request ' + data.status + data.data)
-        let $ = this.cheerio.load(data.data)
-
+        const searchData = await this.requestManager.schedule(tagsIdRequest, 1)
+        let $ = this.cheerio.load(searchData.data)
         return this.parser.parseTags($)
     }
 
@@ -211,6 +196,19 @@ export class ReadManga extends Source {
                     view_more: true,
                 }),
             },
+            {
+                request: createRequestObject({
+                    url: `${AdultManga_DOMAIN}/list`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?sortType=rate'
+                }),
+                section: createHomeSection({
+                    id: '2',
+                    title: 'Манга доля взрослых',
+                    view_more: true,
+                }),
+            },            
         ]
 
         const promises: Promise<void>[] = []
@@ -234,7 +232,7 @@ export class ReadManga extends Source {
     }
 
 
-    async getViewMoreItems(homepageSectionId: string, metadata: any): Promise<PagedResults | null> {
+    async getViewMoreItems(homepageSectionId: string, metadata: any): Promise<PagedResults> {
         let webPage = ''
         let page: number = metadata?.page ?? 0
         switch (homepageSectionId) {
@@ -247,7 +245,10 @@ export class ReadManga extends Source {
                 break
             }
             default:
-                return Promise.resolve(null)
+                return Promise.resolve({
+                    results: [],
+                    metadata: {}
+                })
         }
 
         let request = createRequestObject({
@@ -274,29 +275,35 @@ export class ReadManga extends Source {
 
 
     async filterUpdatedManga(mangaUpdatesFoundCallback: (updates: MangaUpdates) => void, time: Date, ids: string[]): Promise<void> {
-        let page = 0
+        let collectedIds: string[] = []
 
-        while (page < 420) {
-            const request = createRequestObject({
-                url: `${ReadManga_DOMAIN}/list`,
-                method: 'GET',
-                headers: this.constructHeaders({}),
-                param: `?sortType=DATE_UPDATE&offset=${page}`
-            })
-
-            page += 70
-
-            let data = await this.requestManager.schedule(request, 1)
-            let $ = this.cheerio.load(data.data)
-
-            let mangaIds = this.parser.parseUpdatedManga($, this.cheerio, time, ids)
-            if (mangaIds.length > 0) {
-                mangaUpdatesFoundCallback(createMangaUpdates({
-                    ids: mangaIds
-                }))
+        for (const id of ids) {
+            let data
+            try {
+                const request = createRequestObject({
+                    url: `${ReadManga_DOMAIN}/${id}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                })
+                data = await this.requestManager.schedule(request, 1)
             }
-        }
-        
+            catch(e){
+                const request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${id}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                })
+                data = await this.requestManager.schedule(request, 1)
+            }
+            let $ = this.cheerio.load(data.data)
+            if (this.parser.parseUpdatedManga($, this.cheerio, time, id) != null)
+                collectedIds.push(id)
+            }
+        mangaUpdatesFoundCallback(createMangaUpdates({
+            ids: collectedIds
+        }))
     }
 
 
@@ -326,86 +333,21 @@ export class ReadManga extends Source {
     }
 
 
-    constructSearchRequest(searchQuery: string, domain: string): any {
-        let isSearch = searchQuery != ''
-        let data: any = {
-            "q": `${searchQuery}`,
-            "el_1346": ``, 
-            "el_1334": ``, 
-            "el_1333": ``, 
-            "el_1347": ``, 
-            "el_1337": ``, 
-            "el_1343": ``, 
-            "el_1349": ``, 
-            "el_1310": ``, 
-            "el_5229": ``, 
-            "el_1311": ``, 
-            "el_6420": ``, 
-            "el_1351": ``, 
-            "el_1328": ``, 
-            "el_1318": ``, 
-            "el_1325": ``, 
-            "el_1327": ``, 
-            "el_1342": ``, 
-            "el_1322": ``, 
-            "el_1335": ``, 
-            "el_1313": ``, 
-            "el_1316": ``, 
-            "el_1350": ``, 
-            "el_1314": ``, 
-            "el_1320": ``, 
-            "el_1326": ``, 
-            "el_1330": ``, 
-            "el_1321": ``, 
-            "el_1329": ``, 
-            "el_6631": ``, 
-            "el_1344": ``, 
-            "el_1341": ``, 
-            "el_1317": ``, 
-            "el_6632": ``, 
-            "el_1323": ``, 
-            "el_1319": ``, 
-            "el_1340": ``, 
-            "el_1354": ``, 
-            "el_1315": ``, 
-            "el_1336": ``, 
-            "el_6637": ``, 
-            "el_2220": ``, 
-            "el_1332": ``, 
-            "el_2741": ``, 
-            "el_1903": ``, 
-            "el_6421": ``, 
-            "el_1873": ``, 
-            "el_1875": ``, 
-            "el_5688": ``, 
-            "el_3969": ``, 
-            "el_3968": ``, 
-            "el_3990": ``, 
-            "el_6641": ``, 
-            "el_4614": ``, 
-            "el_1355": ``, 
-            "el_1874": ``, 
-            "el_1348": ``, 
-            "s_high_rate": ``, 
-            "s_single": ``, 
-            "s_mature": ``, 
-            "s_completed": ``, 
-            "s_translated": ``, 
-            "s_abandoned_popular": ``, 
-            "s_many_chapters": ``, 
-            "s_wait_upload": ``, 
-            "s_not_pessimized": ``, 
-            "years": `1961,2023`,
-            "sortType": `RATING`,
-            " ": `Искать`,
-        }
-
+    constructSearchRequest(searchQuery: SearchRequest, domain: string): any {
+        let params = `?&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`
+        params += searchQuery.title? `&q=${searchQuery.title}` : `&q=`
+        if (searchQuery.includedTags)
+            for (const tag of searchQuery.includedTags) {
+                params += `&${tag.id}=in`
+            }
+        console.log('search parameters ' + params)
         return createRequestObject({
-            url: `${domain}/search/advanced`,
-            method: 'POST',
+            url: `${domain}/search/advancedResults`,
+            method: 'GET',
             headers: this.constructHeaders({}),
-            data: this.urlEncodeObject(data),
+            param: encodeURI(params)
         })
+
     }
 
 

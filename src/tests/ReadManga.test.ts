@@ -21,7 +21,7 @@ describe('ReadManga Tests', function () {
     // var mangaId = "povest_o_lunnoi_princesse";
     // var mangaId = "stalnoi_alhimik__A5327";
     // var mangaId = "chelovek_benzopila_2";
-    var mangaId = "van_pis__A5664"
+    var mangaId = "elised"
     
 
 
@@ -67,8 +67,8 @@ describe('ReadManga Tests', function () {
     })
 
     it("Testing search", async () => {
-        let testSearch = createSearchRequest({
-            title: 'chainsaw'
+        let testSearch = wrapper.constructSearchRequest({
+            title: 'Тест'
         });
 
         let search = await wrapper.searchRequest(source, testSearch, 1);
@@ -107,10 +107,10 @@ describe('ReadManga Tests', function () {
         expect(data, "Empty server response").to.not.be.empty;
     })
 
-    // it("Testing Notifications", async () => {
-    //     let updates = await wrapper.filterUpdatedManga(source, new Date("2022-05-14"), ["ekscentrichnaia_gercoginia", "ia_podobrala_vtorostepennogo_personaja_posle_konca__A533b"]);
-    //     expect(updates, "No server response").to.exist;
-    //     expect(updates, "Empty server response").to.not.be.empty;
-    // })
+    it("Testing Notifications", async () => {
+        let updates = await wrapper.filterUpdatedManga(source, new Date("2024-01-13"), ["chelovek_benzopila_2"]);
+        expect(updates, "No server response").to.exist;
+        expect(updates, "Empty server response").to.not.be.empty;
+    })
 
 })

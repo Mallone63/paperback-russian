@@ -15,10 +15,10 @@
   "dependencies": {
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "cheerio": "^0.22.0",
+    "cheerio": "^1.0.0-rc.10",
     "moment": "^2.29.3",
     "paperback-cli": "^1.4.0",
-    "paperback-extensions-common": "^2.1.125",
+    "paperback-extensions-common": "^5.0.0-alpha.7",
     "ts-mocha": "^7.0.0",
     "tsify": "^4.0.2",
     "typescript": "^3.9.6"
