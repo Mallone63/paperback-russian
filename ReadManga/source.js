@@ -6272,7 +6272,7 @@ const Parser_1 = require("./Parser");
 const ReadManga_DOMAIN = 'https://readmanga.live';
 const AdultManga_DOMAIN = 'https://1.seimanga.me';
 exports.ReadMangaInfo = {
-    version: '1.0.1',
+    version: '1.1.30',
     name: 'ReadManga',
     description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
@@ -6283,6 +6283,10 @@ exports.ReadMangaInfo = {
     sourceTags: [
         {
             text: "Buggy",
+            type: paperback_extensions_common_1.TagType.RED
+        },
+        {
+            text: "VPN Needed",
             type: paperback_extensions_common_1.TagType.RED
         },
         {
@@ -6307,32 +6311,29 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     getMangaDetails(mangaId) {
         return __awaiter(this, void 0, void 0, function* () {
-            let data;
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}/${mangaId}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
                 param: '?mtr=1'
             });
-            data = yield this.requestManager.schedule(request, 1);
-            console.log('getting manga details from ' + data.request.url);
-            console.log('response status ' + data.status);
+            let data = yield this.requestManager.schedule(request, 1);
             let $ = this.cheerio.load(data.data);
             return this.parser.parseMangaDetails($, mangaId);
         });
     }
     getChapters(mangaId) {
         return __awaiter(this, void 0, void 0, function* () {
+            let chapters = [];
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}/${mangaId}`,
                 method: "GET",
                 headers: this.constructHeaders({}),
                 param: '?mtr=1'
             });
-            let data;
-            data = yield this.requestManager.schedule(request, 1);
+            let data = yield this.requestManager.schedule(request, 1);
             let $ = this.cheerio.load(data.data);
-            let chapters = this.parser.parseChapterList($, mangaId);
+            chapters = this.parser.parseChapterList($, mangaId);
             return chapters;
         });
     }
@@ -6353,7 +6354,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 });
                 data = yield this.requestManager.schedule(request, 1);
                 $ = this.cheerio.load(data.data);
-                pages.concat(this.parser.parseChapterDetails($));
+                pages = this.parser.parseChapterDetails($);
                 if (pages.length > 0)
                     break;
             }
@@ -6394,14 +6395,6 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     getSearchTags() {
         return __awaiter(this, void 0, void 0, function* () {
-            // const request = createRequestObject({
-            //     url: `${ReadManga_DOMAIN}/list/genres/sort_name`,
-            //     method: 'GET'
-            // })
-            // const data = await this.requestManager.schedule(request, 1)
-            // console.log('tags request ' + data.status + data.data)
-            // let $ = this.cheerio.load(data.data)
-            // let tags: string[] = this.parser.getTagsNames($)
             const tagsIdRequest = createRequestObject({
                 url: `${ReadManga_DOMAIN}/search/advanced`,
                 method: 'GET',
@@ -6438,6 +6431,19 @@ class ReadManga extends paperback_extensions_common_1.Source {
                     section: createHomeSection({
                         id: '1',
                         title: 'Новинки',
+                        view_more: true,
+                    }),
+                },
+                {
+                    request: createRequestObject({
+                        url: `${AdultManga_DOMAIN}/list`,
+                        method: 'GET',
+                        headers: this.constructHeaders({}),
+                        param: '?sortType=rate'
+                    }),
+                    section: createHomeSection({
+                        id: '2',
+                        title: 'Манга для взрослых',
                         view_more: true,
                     }),
                 },
@@ -6566,7 +6572,6 @@ class ReadManga extends paperback_extensions_common_1.Source {
             method: 'GET',
             headers: this.constructHeaders({}),
             param: encodeURI(params)
-            // options: {proxy: "http://45.131.7.248:80"}
         });
     }
 }
