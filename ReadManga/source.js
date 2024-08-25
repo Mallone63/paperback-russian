@@ -6272,7 +6272,7 @@ const Parser_1 = require("./Parser");
 const ReadManga_DOMAIN = 'https://readmanga.live';
 const AdultManga_DOMAIN = 'https://1.seimanga.me';
 exports.ReadMangaInfo = {
-    version: '1.0.1',
+    version: '1.1.30',
     name: 'ReadManga',
     description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
@@ -6353,7 +6353,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 });
                 data = yield this.requestManager.schedule(request, 1);
                 $ = this.cheerio.load(data.data);
-                pages.concat(this.parser.parseChapterDetails($));
+                pages = this.parser.parseChapterDetails($);
                 if (pages.length > 0)
                     break;
             }
