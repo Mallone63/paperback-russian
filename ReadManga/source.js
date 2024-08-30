@@ -6058,7 +6058,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Parser = void 0;
 const moment_1 = __importDefault(require("moment"));
 const paperback_extensions_common_1 = require("paperback-extensions-common");
-const READMANGA_DOMAIN = 'https://readmanga.live/';
+const READMANGA_DOMAIN = 'https://web.usagi.one/';
 class Parser {
     parseMangaDetails($, mangaId) {
         var _a, _b;
@@ -6269,7 +6269,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
-const ReadManga_DOMAIN = 'https://readmanga.live';
+const ReadManga_DOMAIN = 'https://web.usagi.one';
 const AdultManga_DOMAIN = 'https://1.seimanga.me';
 exports.ReadMangaInfo = {
     version: '1.1.30',
