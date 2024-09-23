@@ -7,7 +7,7 @@
             "author": "mallone63",
             "desc": "Extension that pulls manga from readmanga.live and mintmanga.one",
             "website": "https://github.com/mallone63",
-            "version": "1.1.35",
+            "version": "1.1.36",
             "icon": "logo.png",
             "tags": [
                 {
@@ -21,11 +21,7 @@
                 {
                     "text": "Russian",
                     "type": "info"
-                },
-				{
-					"text": "VPN Needed",
-					"type": "danger"
-				}        				
+                }   				
             ],
             "websiteBaseURL": "https://readmanga.live"
         }

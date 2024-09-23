@@ -6058,7 +6058,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Parser = void 0;
 const moment_1 = __importDefault(require("moment"));
 const paperback_extensions_common_1 = require("paperback-extensions-common");
-const READMANGA_DOMAIN = 'https://readmanga.live/';
+const READMANGA_DOMAIN = 'https://web.usagi.one/';
 class Parser {
     parseMangaDetails($, mangaId) {
         var _a, _b;
@@ -6269,7 +6269,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
-const ReadManga_DOMAIN = 'https://readmanga.live';
+const ReadManga_DOMAIN = 'https://web.usagi.one';
 const AdultManga_DOMAIN = 'https://1.seimanga.me';
 exports.ReadMangaInfo = {
     version: '1.1.30',
@@ -6283,10 +6283,6 @@ exports.ReadMangaInfo = {
     sourceTags: [
         {
             text: "Buggy",
-            type: paperback_extensions_common_1.TagType.RED
-        },
-        {
-            text: "VPN Needed",
             type: paperback_extensions_common_1.TagType.RED
         },
         {
@@ -6318,6 +6314,15 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 param: '?mtr=1'
             });
             let data = yield this.requestManager.schedule(request, 1);
+            if (data.status === 404) {
+                request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+                data = yield this.requestManager.schedule(request, 1);
+            }
             let $ = this.cheerio.load(data.data);
             return this.parser.parseMangaDetails($, mangaId);
         });
@@ -6332,6 +6337,15 @@ class ReadManga extends paperback_extensions_common_1.Source {
                 param: '?mtr=1'
             });
             let data = yield this.requestManager.schedule(request, 1);
+            if (data.status === 404) {
+                request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+                data = yield this.requestManager.schedule(request, 1);
+            }
             let $ = this.cheerio.load(data.data);
             chapters = this.parser.parseChapterList($, mangaId);
             return chapters;
