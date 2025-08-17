@@ -1,13 +1,13 @@
 import moment from 'moment'
 import { Chapter, LanguageCode, Manga, MangaStatus, MangaTile, Tag, TagSection } from 'paperback-extensions-common'
 
-const READMANGA_DOMAIN = 'https://readmanga.live/'
+const READMANGA_DOMAIN = 'https://web.usagi.one/'
 
 export class Parser {
 
     parseMangaDetails($: CheerioSelector, mangaId: string): Manga {
 
-        let titles = [$('span.eng-name').text(), $('span.name').text()]
+        let titles = [$('h1 > span.name').text(), $('span.name')?.first().text()]
         let imageContainer = $('div.picture-fotorama')
         let image = $('img', imageContainer).attr('src') ?? ''
 
@@ -93,7 +93,7 @@ export class Parser {
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
                 console.log(script.children[0].data)
-                if (script.children[0].data.includes('rm_h.readerDoInit(')) {
+                if (script.children[0].data.includes('rm_h.readerInit(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
                     for (let link of links) {
                         console.log(link)

@@ -17,7 +17,7 @@ import {
 
 import { Parser, } from './Parser'
 
-const ReadManga_DOMAIN = 'https://readmanga.live'
+const ReadManga_DOMAIN = 'https://web.usagi.one'
 const AdultManga_DOMAIN = 'https://1.seimanga.me'
 
 export const ReadMangaInfo: SourceInfo = {
@@ -33,7 +33,7 @@ export const ReadMangaInfo: SourceInfo = {
         {
             text: "Buggy",
             type: TagType.RED
-        },
+        },     
         {
             text: "Russian",
             type: TagType.GREY
@@ -59,36 +59,49 @@ export class ReadManga extends Source {
     }
 
     async getMangaDetails(mangaId: string): Promise<Manga> {
-        let data
+
         let request = createRequestObject({
             url: `${ReadManga_DOMAIN}/${mangaId}`,
             method: 'GET',
             headers: this.constructHeaders({}),
             param: '?mtr=1'
         })
-        data = await this.requestManager.schedule(request, 1)
-        console.log('getting manga details from ' + data.request.url)
-        console.log('response status ' + data.status)
-        
+        let data = await this.requestManager.schedule(request, 1)
+        if (data.status === 404) {
+            request = createRequestObject({
+                url: `${AdultManga_DOMAIN}/${mangaId}`,
+                method: 'GET',
+                headers: this.constructHeaders({}),
+                param: '?mtr=1'
+            })
+            data = await this.requestManager.schedule(request, 1)            
+        }
         let $ = this.cheerio.load(data.data)
-
 
         return this.parser.parseMangaDetails($, mangaId)
     }
 
 
     async getChapters(mangaId: string): Promise<Chapter[]> {
+        let chapters: Chapter[] = []
         let request = createRequestObject({
             url: `${ReadManga_DOMAIN}/${mangaId}`,
             method: "GET",
             headers: this.constructHeaders({}),
             param: '?mtr=1'
         })
-        let data
-        data = await this.requestManager.schedule(request, 1)
+        let data = await this.requestManager.schedule(request, 1)
+        if (data.status === 404) {
+            request = createRequestObject({
+                url: `${AdultManga_DOMAIN}/${mangaId}`,
+                method: 'GET',
+                headers: this.constructHeaders({}),
+                param: '?mtr=1'
+            })
+            data = await this.requestManager.schedule(request, 1)            
+        }
         let $ = this.cheerio.load(data.data)
-
-        let chapters = this.parser.parseChapterList($, mangaId)
+        chapters = this.parser.parseChapterList($, mangaId)
 
         return chapters
     }
@@ -205,7 +218,7 @@ export class ReadManga extends Source {
                 }),
                 section: createHomeSection({
                     id: '2',
-                    title: 'Манга доля взрослых',
+                    title: 'Манга для взрослых',
                     view_more: true,
                 }),
             },            
