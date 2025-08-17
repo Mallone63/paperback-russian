@@ -6061,10 +6061,10 @@ const paperback_extensions_common_1 = require("paperback-extensions-common");
 const READMANGA_DOMAIN = 'https://web.usagi.one/';
 class Parser {
     parseMangaDetails($, mangaId) {
-        var _a, _b;
-        let titles = [$('span.eng-name').text(), $('span.name').text()];
+        var _a, _b, _c;
+        let titles = [$('h1 > span.name').text(), (_a = $('span.name')) === null || _a === void 0 ? void 0 : _a.first().text()];
         let imageContainer = $('div.picture-fotorama');
-        let image = (_a = $('img', imageContainer).attr('src')) !== null && _a !== void 0 ? _a : '';
+        let image = (_b = $('img', imageContainer).attr('src')) !== null && _b !== void 0 ? _b : '';
         let status = paperback_extensions_common_1.MangaStatus.ONGOING, author = '', released, rating = 0, artist = '', views, summary;
         let tagArray0 = [];
         let authorArray = ($('span.elem_author > a').length === 0 ?
@@ -6081,7 +6081,7 @@ class Parser {
         released = $('span.elem_year > a').text();
         let timeArray = $('td.date').toArray();
         let updateTime = new Date($(timeArray[0]).attr('data-date') || released);
-        status = ((_b = $('p', 'div.subject-meta')) === null || _b === void 0 ? void 0 : _b.first().text().includes('завершено')) ? paperback_extensions_common_1.MangaStatus.COMPLETED : paperback_extensions_common_1.MangaStatus.ONGOING;
+        status = ((_c = $('p', 'div.subject-meta')) === null || _c === void 0 ? void 0 : _c.first().text().includes('завершено')) ? paperback_extensions_common_1.MangaStatus.COMPLETED : paperback_extensions_common_1.MangaStatus.ONGOING;
         views = 0;
         // let genres = $('span.elem_genre').toArray().slice(1)
         // for (let obj of genres) {
