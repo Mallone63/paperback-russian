@@ -6058,13 +6058,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Parser = void 0;
 const moment_1 = __importDefault(require("moment"));
 const paperback_extensions_common_1 = require("paperback-extensions-common");
-const READMANGA_DOMAIN = 'https://readmanga.live/';
+const READMANGA_DOMAIN = 'https://web.usagi.one/';
 class Parser {
     parseMangaDetails($, mangaId) {
-        var _a, _b;
-        let titles = [$('span.eng-name').text(), $('span.name').text()];
+        var _a, _b, _c;
+        let titles = [$('h1 > span.name').text(), (_a = $('span.name')) === null || _a === void 0 ? void 0 : _a.first().text()];
         let imageContainer = $('div.picture-fotorama');
-        let image = (_a = $('img', imageContainer).attr('src')) !== null && _a !== void 0 ? _a : '';
+        let image = (_b = $('img', imageContainer).attr('src')) !== null && _b !== void 0 ? _b : '';
         let status = paperback_extensions_common_1.MangaStatus.ONGOING, author = '', released, rating = 0, artist = '', views, summary;
         let tagArray0 = [];
         let authorArray = ($('span.elem_author > a').length === 0 ?
@@ -6081,7 +6081,7 @@ class Parser {
         released = $('span.elem_year > a').text();
         let timeArray = $('td.date').toArray();
         let updateTime = new Date($(timeArray[0]).attr('data-date') || released);
-        status = ((_b = $('p', 'div.subject-meta')) === null || _b === void 0 ? void 0 : _b.first().text().includes('завершено')) ? paperback_extensions_common_1.MangaStatus.COMPLETED : paperback_extensions_common_1.MangaStatus.ONGOING;
+        status = ((_c = $('p', 'div.subject-meta')) === null || _c === void 0 ? void 0 : _c.first().text().includes('завершено')) ? paperback_extensions_common_1.MangaStatus.COMPLETED : paperback_extensions_common_1.MangaStatus.ONGOING;
         views = 0;
         // let genres = $('span.elem_genre').toArray().slice(1)
         // for (let obj of genres) {
@@ -6136,7 +6136,7 @@ class Parser {
         for (let script of scripts) {
             if (script.children.length > 0 && script.children[0].data) {
                 console.log(script.children[0].data);
-                if (script.children[0].data.includes('rm_h.readerDoInit(')) {
+                if (script.children[0].data.includes('rm_h.readerInit(')) {
                     let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
                     for (let link of links) {
                         console.log(link);
@@ -6269,7 +6269,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReadManga = exports.ReadMangaInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const Parser_1 = require("./Parser");
-const ReadManga_DOMAIN = 'https://readmanga.live';
+const ReadManga_DOMAIN = 'https://web.usagi.one';
 const AdultManga_DOMAIN = 'https://1.seimanga.me';
 exports.ReadMangaInfo = {
     version: '1.1.30',
@@ -6307,32 +6307,47 @@ class ReadManga extends paperback_extensions_common_1.Source {
     }
     getMangaDetails(mangaId) {
         return __awaiter(this, void 0, void 0, function* () {
-            let data;
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}/${mangaId}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
                 param: '?mtr=1'
             });
-            data = yield this.requestManager.schedule(request, 1);
-            console.log('getting manga details from ' + data.request.url);
-            console.log('response status ' + data.status);
+            let data = yield this.requestManager.schedule(request, 1);
+            if (data.status === 404) {
+                request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+                data = yield this.requestManager.schedule(request, 1);
+            }
             let $ = this.cheerio.load(data.data);
             return this.parser.parseMangaDetails($, mangaId);
         });
     }
     getChapters(mangaId) {
         return __awaiter(this, void 0, void 0, function* () {
+            let chapters = [];
             let request = createRequestObject({
                 url: `${ReadManga_DOMAIN}/${mangaId}`,
                 method: "GET",
                 headers: this.constructHeaders({}),
                 param: '?mtr=1'
             });
-            let data;
-            data = yield this.requestManager.schedule(request, 1);
+            let data = yield this.requestManager.schedule(request, 1);
+            if (data.status === 404) {
+                request = createRequestObject({
+                    url: `${AdultManga_DOMAIN}/${mangaId}`,
+                    method: 'GET',
+                    headers: this.constructHeaders({}),
+                    param: '?mtr=1'
+                });
+                data = yield this.requestManager.schedule(request, 1);
+            }
             let $ = this.cheerio.load(data.data);
-            let chapters = this.parser.parseChapterList($, mangaId);
+            chapters = this.parser.parseChapterList($, mangaId);
             return chapters;
         });
     }
@@ -6442,7 +6457,7 @@ class ReadManga extends paperback_extensions_common_1.Source {
                     }),
                     section: createHomeSection({
                         id: '2',
-                        title: 'Манга доля взрослых',
+                        title: 'Манга для взрослых',
                         view_more: true,
                     }),
                 },
