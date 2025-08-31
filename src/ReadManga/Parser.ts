@@ -1,17 +1,28 @@
 import moment from 'moment'
-import { Chapter, LanguageCode, Manga, MangaStatus, MangaTile, Tag, TagSection } from 'paperback-extensions-common'
+import {
+    Chapter,
+    ChapterDetails,
+    HomeSection,
+    HomeSectionType,
+    PartialSourceManga,
+    SourceManga,
+    Tag,
+    TagSection
+} from '@paperback/types'
+
+import { CheerioAPI } from 'cheerio'
 
 const READMANGA_DOMAIN = 'https://web.usagi.one/'
 
 export class Parser {
 
-    parseMangaDetails($: CheerioSelector, mangaId: string): Manga {
+    parseMangaDetails($: CheerioAPI, mangaId: string): SourceManga {
 
         let titles = [$('h1 > span.name').text(), $('span.name')?.first().text()]
         let imageContainer = $('div.picture-fotorama')
         let image = $('img', imageContainer).attr('src') ?? ''
 
-        let status = MangaStatus.ONGOING, author = '', released, rating: number = 0, artist = '', views, summary
+        let status = 'Ongoing', author = '', released, rating: number = 0, artist = '', views, summary
 
         let tagArray0: Tag[] = []
         let authorArray = ($('span.elem_author > a').length === 0 ?
@@ -30,7 +41,7 @@ export class Parser {
         
         let updateTime = new Date($(timeArray[0]).attr('data-date') || released)
 
-        status = $('p', 'div.subject-meta')?.first().text().includes('завершено') ? MangaStatus.COMPLETED : MangaStatus.ONGOING
+        status = $('p', 'div.subject-meta')?.first().text().includes('завершено') ? 'Completed' : 'Ongoing'
         views = 0
 
         // let genres = $('span.elem_genre').toArray().slice(1)
@@ -38,26 +49,27 @@ export class Parser {
         //     let id = $(obj).text().replace(',', '').trim()
         //     let label = $(obj).text().replace(',', '').trim()
         //     if (typeof id === 'undefined' || typeof label === 'undefined') continue
-        //     tagArray0 = [...tagArray0, createTag({ id: id, label: label })]
+        //     tagArray0 = [...tagArray0, App.createTag({ id: id, label: label })]
         // }
-        // let tagSections: TagSection[] = [createTagSection({ id: '0', label: 'Теги', tags: tagArray0 })]
-        return createManga({
+        // let tagSections: TagSection[] = [App.createTagSection({ id: '0', label: 'Теги', tags: tagArray0 })]
+        return App.createSourceManga({
             id: mangaId,
-            rating: rating,
-            titles: titles,
-            image: image,
-            status: status,
-            author: author.trim(),
-            artist: artist.trim(),
-            views: views,
-            // tags: tagSections,
-            desc: this.decodeHTMLEntity(summary ?? ''),
-            lastUpdate: updateTime
+            mangaInfo: App.createMangaInfo({
+                rating: rating,
+                titles: titles,
+                image: image,
+                status: status,
+                author: author.trim(),
+                artist: artist.trim(),
+                // tags: tagSections,
+                desc: this.decodeHTMLEntity(summary ?? '')
+
+            })
         })
     }
 
 
-    parseChapterList($: CheerioSelector, mangaId: string): Chapter[] {
+    parseChapterList($: CheerioAPI, mangaId: string): Chapter[] {
 
         let chapters: Chapter[] = []
 
@@ -70,11 +82,10 @@ export class Parser {
             let chapName = $(obj)?.text().trim()
             let time = moment($(timeArray[i]).attr('data-date'), 'DD.MM.YY')
             if (typeof chapterId === 'undefined' || isNaN(chapNum) || !time) continue
-            chapters.push(createChapter({
+            chapters.push(App.createChapter({
                 id: chapterId,
-                mangaId: mangaId,
                 chapNum: Number(chapNum),
-                langCode: LanguageCode.RUSSIAN,
+                langCode: 'RU',
                 name: chapName,
                 time: time.toDate()
             }))
@@ -86,34 +97,34 @@ export class Parser {
 
 
 
-    parseChapterDetails($: CheerioSelector): string[] {
-        let scripts = $('script').toArray()
+    parseChapterDetails($: CheerioAPI): string[] {
+        const scripts = $('script')
         console.log('scripts found: ', scripts.length)
-        let pages = []
-        for (let script of scripts) {
-            if (script.children.length > 0 && script.children[0].data) {
-                console.log(script.children[0].data)
-                if (script.children[0].data.includes('rm_h.readerInit(')) {
-                    let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
-                    for (let link of links) {
+        let pages: string[] = []
+        for (const script of scripts.toArray()) {
+            const scriptContent = $(script).html()
+            if (scriptContent && scriptContent.includes('rm_h.readerInit(')) {
+                const links = [...scriptContent.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
+                for (const link of links) {
+                    if (link[1]) {
                         console.log(link)
                         let strippedLink = link[1].replace('\',\'\',\"', '')
                         if (!strippedLink.includes('rmr.rocks'))
                             strippedLink = strippedLink.replace(/\?.*$/g, "")
                         console.log(strippedLink)
-                        if (!strippedLink.includes('auto/15/49/36')) 
+                        if (!strippedLink.includes('auto/15/49/36'))
                             pages.push(strippedLink)
                     }
-                    break
                 }
+                break
             }
         }
         return pages
     }
 
 
-    parseSearchResults($: CheerioSelector, cheerio: any): any {
-        let mangaTiles: MangaTile[] = []
+    parseSearchResults($: CheerioAPI, cheerio: any): any {
+        let mangaTiles: PartialSourceManga[] = []
         let collectedIds: string[] = []
 
         let directManga = $('div.tile')
@@ -131,9 +142,9 @@ export class Parser {
             }
             if (typeof id === 'undefined' || id.includes('/person/')) continue
             if (!collectedIds.includes(id)) {
-                mangaTiles.push(createMangaTile({
-                    id: id,
-                    title: createIconText({ text: titleText }),
+                mangaTiles.push(App.createPartialSourceManga({
+                    mangaId: id,
+                    title: titleText,
                     image: image
                 }))
                 collectedIds.push(id)
@@ -143,7 +154,7 @@ export class Parser {
     }
 
 
-    parseUpdatedManga($: CheerioSelector, cheerio: any, time: Date, id: string): any {
+    parseUpdatedManga($: CheerioAPI, cheerio: any, time: Date, id: string): any {
         let timeArray = $('td.date').toArray()
 
         
@@ -156,7 +167,7 @@ export class Parser {
     }
 
 
-    getTagsNames($: CheerioSelector): string[] {
+    getTagsNames($: CheerioAPI): string[] {
 
         const genres: string[] = []
         for (const obj of $('a', $('td')).toArray()) {
@@ -167,7 +178,7 @@ export class Parser {
         return genres
     }
 
-    parseTags($: CheerioSelector): TagSection[] {
+    parseTags($: CheerioAPI): TagSection[] {
 
         const genres: Tag[] = []
         let idArray = $('li > input').toArray()
@@ -177,15 +188,15 @@ export class Parser {
             if (label) {
                 let id = $(idArray[index]).attr('id')?.trim()
                 if (id)
-                    genres.push(createTag({ label, id }))
+                    genres.push(App.createTag({ label, id }))
             }
         })
-        return [createTagSection({ id: '0', label: 'Теги', tags: genres })]
+        return [App.createTagSection({ id: '0', label: 'Теги', tags: genres })]
     }
 
-    parseHomePageSection($: CheerioSelector, cheerio: any): MangaTile[] {
+    parseHomePageSection($: CheerioAPI, cheerio: any): PartialSourceManga[] {
 
-        let tiles: MangaTile[] = []
+        let tiles: PartialSourceManga[] = []
         let collectedIds: string[] = []
         for (let obj of $('tr', $('.listing')).toArray()) {
 
@@ -202,9 +213,9 @@ export class Parser {
 
             if (typeof id === 'undefined' || typeof image === 'undefined') continue
             if (!collectedIds.includes(id)) {
-                tiles.push(createMangaTile({
-                    id: id,
-                    title: createIconText({ text: titleText }),
+                tiles.push(App.createPartialSourceManga({
+                    mangaId: id,
+                    title: titleText,
                     image: image
                 }))
                 collectedIds.push(id)
@@ -214,7 +225,7 @@ export class Parser {
     }
 
 
-    isLastPage($: CheerioSelector): boolean {
+    isLastPage($: CheerioAPI): boolean {
         return $('i.fa.fa-arrow-right').toArray().length > 0 ? false : true
     }
 

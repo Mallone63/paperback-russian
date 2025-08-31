@@ -1,19 +1,23 @@
 import {
+    SourceManga,
     Chapter,
     ChapterDetails,
     HomeSection,
-    Manga,
-    MangaUpdates,
-    PagedResults,
     SearchRequest,
-    RequestHeaders,
-    Source,
+    PagedResults,
     SourceInfo,
+    BadgeColor,
     TagSection,
-    TagType,
     ContentRating,
-    Tag
-} from "paperback-extensions-common"
+    MangaUpdates,
+    ChapterProviding,
+    MangaProviding,
+    SearchResultsProviding,
+    HomePageSectionsProviding,
+    HomeSectionType
+} from '@paperback/types'
+
+import * as cheerio from 'cheerio'
 
 import { Parser, } from './Parser'
 
@@ -21,7 +25,7 @@ const ReadManga_DOMAIN = 'https://web.usagi.one'
 const AdultManga_DOMAIN = 'https://1.seimanga.me'
 
 export const ReadMangaInfo: SourceInfo = {
-    version: '1.1.30',
+    version: '1.1.40',
     name: 'ReadManga',
     description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
@@ -31,19 +35,15 @@ export const ReadMangaInfo: SourceInfo = {
     websiteBaseURL: ReadManga_DOMAIN,
     sourceTags: [
         {
-            text: "Buggy",
-            type: TagType.RED
-        },     
-        {
             text: "Russian",
-            type: TagType.GREY
+            type: BadgeColor.GREY
         }
     ]
 }
 
-export class ReadManga extends Source {
+export class ReadManga implements SearchResultsProviding, MangaProviding, ChapterProviding, HomePageSectionsProviding {
 
-    requestManager = createRequestManager({
+    requestManager = App.createRequestManager({
         requestsPerSecond: 2,
         requestTimeout: 30000,
     })
@@ -58,9 +58,9 @@ export class ReadManga extends Source {
         return `${ReadManga_DOMAIN}/${mangaId}`
     }
 
-    async getMangaDetails(mangaId: string): Promise<Manga> {
+    async getMangaDetails(mangaId: string): Promise<SourceManga> {
 
-        let request = createRequestObject({
+        let request = App.createRequest({
             url: `${ReadManga_DOMAIN}/${mangaId}`,
             method: 'GET',
             headers: this.constructHeaders({}),
@@ -68,7 +68,7 @@ export class ReadManga extends Source {
         })
         let data = await this.requestManager.schedule(request, 1)
         if (data.status === 404) {
-            request = createRequestObject({
+            request = App.createRequest({
                 url: `${AdultManga_DOMAIN}/${mangaId}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
@@ -76,7 +76,7 @@ export class ReadManga extends Source {
             })
             data = await this.requestManager.schedule(request, 1)            
         }
-        let $ = this.cheerio.load(data.data)
+        let $ = cheerio.load(data.data ?? '')
 
         return this.parser.parseMangaDetails($, mangaId)
     }
@@ -84,7 +84,7 @@ export class ReadManga extends Source {
 
     async getChapters(mangaId: string): Promise<Chapter[]> {
         let chapters: Chapter[] = []
-        let request = createRequestObject({
+        let request = App.createRequest({
             url: `${ReadManga_DOMAIN}/${mangaId}`,
             method: "GET",
             headers: this.constructHeaders({}),
@@ -92,7 +92,7 @@ export class ReadManga extends Source {
         })
         let data = await this.requestManager.schedule(request, 1)
         if (data.status === 404) {
-            request = createRequestObject({
+            request = App.createRequest({
                 url: `${AdultManga_DOMAIN}/${mangaId}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
@@ -100,7 +100,7 @@ export class ReadManga extends Source {
             })
             data = await this.requestManager.schedule(request, 1)            
         }
-        let $ = this.cheerio.load(data.data)
+        let $ = cheerio.load(data.data ?? '')
         chapters = this.parser.parseChapterList($, mangaId)
 
         return chapters
@@ -115,25 +115,24 @@ export class ReadManga extends Source {
         let data
         let $
         for (let source of sources) {
-            request = createRequestObject({
+            request = App.createRequest({
                 url: `${source}`,
                 method: 'GET',
                 headers: this.constructHeaders({}),
                 param: '?mtr=1'
             })
             data = await this.requestManager.schedule(request, 1)
-            $ = this.cheerio.load(data.data)
+            $ = cheerio.load(data.data ?? '')
             pages = this.parser.parseChapterDetails($)
             if (pages.length > 0) break
         }
-        console.log('found pages: ' + pages.length)
-        console.log(pages)
 
-        return createChapterDetails({
+        console.log('found pages: ' + pages.length)
+
+        return App.createChapterDetails({
             id: chapterId,
             mangaId: mangaId,
-            pages: pages,
-            longStrip: false
+            pages: pages
         })
     }
 
@@ -146,11 +145,11 @@ export class ReadManga extends Source {
         let manga: any
         let mData = undefined
 
-        let request = this.constructSearchRequest(query, domain)
+        const request = this.constructSearchRequest(query, domain)
 
         let data = await this.requestManager.schedule(request, 1)
-        let $ = this.cheerio.load(data.data)
-        manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio)
+        let $ = cheerio.load(data.data ?? '')
+        manga = manga ? manga.concat(this.parser.parseSearchResults($, cheerio)) : this.parser.parseSearchResults($, cheerio)
         if (!this.parser.isLastPage($)) {
             mData = { page: (page + 1), nextSource: domain }
         } else {
@@ -160,22 +159,21 @@ export class ReadManga extends Source {
             mData = { page: (page + 1), nextSource: AdultManga_DOMAIN }
 
 
-        return createPagedResults({
-            results: manga,
+        return App.createPagedResults({
+            results: manga || [],
             metadata: mData
         })
-
     }
 
 
     async getSearchTags(): Promise<TagSection[]> {
-        const tagsIdRequest = createRequestObject({
+        const tagsIdRequest = App.createRequest({
             url: `${ReadManga_DOMAIN}/search/advanced`,
             method: 'GET',
             headers: this.constructHeaders({})
         })
         const searchData = await this.requestManager.schedule(tagsIdRequest, 1)
-        let $ = this.cheerio.load(searchData.data)
+        let $ = cheerio.load(searchData.data ?? '')
         return this.parser.parseTags($)
     }
 
@@ -184,42 +182,45 @@ export class ReadManga extends Source {
 
         const sections = [
             {
-                request: createRequestObject({
+                request: App.createRequest({
                     url: `${ReadManga_DOMAIN}/list`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?sortType=votes'
                 }),
-                section: createHomeSection({
+                section: App.createHomeSection({
                     id: '0',
                     title: 'С наивысшим рейтингом',
-                    view_more: true
+                    type: HomeSectionType.featured,
+                    containsMoreItems: true
                 }),
             },
             {
-                request: createRequestObject({
+                request: App.createRequest({
                     url: `${ReadManga_DOMAIN}/list`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?sortType=created'
                 }),
-                section: createHomeSection({
+                section: App.createHomeSection({
                     id: '1',
                     title: 'Новинки',
-                    view_more: true,
+                    type: HomeSectionType.singleRowNormal,
+                    containsMoreItems: true
                 }),
             },
             {
-                request: createRequestObject({
+                request: App.createRequest({
                     url: `${AdultManga_DOMAIN}/list`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?sortType=rate'
                 }),
-                section: createHomeSection({
+                section: App.createHomeSection({
                     id: '2',
                     title: 'Манга для взрослых',
-                    view_more: true,
+                    type: HomeSectionType.singleRowNormal,
+                    containsMoreItems: true
                 }),
             },            
         ]
@@ -233,8 +234,8 @@ export class ReadManga extends Source {
             // Get the section data
             promises.push(
                 this.requestManager.schedule(section.request, 1).then(response => {
-                    const $ = this.cheerio.load(response.data)
-                    section.section.items = this.parser.parseSearchResults($, this.cheerio)
+                    const $ = cheerio.load(response.data ?? '')
+                    section.section.items = this.parser.parseSearchResults($, cheerio)
                     sectionCallback(section.section)
                 }),
             )
@@ -264,15 +265,15 @@ export class ReadManga extends Source {
                 })
         }
 
-        let request = createRequestObject({
+        let request = App.createRequest({
             url: `${ReadManga_DOMAIN}${webPage}`,
             method: 'GET',
             headers: this.constructHeaders({})
         })
 
         let data = await this.requestManager.schedule(request, 1)
-        let $ = this.cheerio.load(data.data)
-        let manga = this.parser.parseSearchResults($, this.cheerio)
+        let $ = cheerio.load(data.data ?? '')
+        let manga = this.parser.parseSearchResults($, cheerio)
         let mData
         if (!this.parser.isLastPage($)) {
             mData = { page: (page + 70) }
@@ -280,7 +281,7 @@ export class ReadManga extends Source {
             mData = undefined  // There are no more pages to continue on to, do not provide page metadata
         }
 
-        return createPagedResults({
+        return App.createPagedResults({
             results: manga,
             metadata: mData
         })
@@ -288,12 +289,11 @@ export class ReadManga extends Source {
 
 
     async filterUpdatedManga(mangaUpdatesFoundCallback: (updates: MangaUpdates) => void, time: Date, ids: string[]): Promise<void> {
-        let collectedIds: string[] = []
-
+        const collectedIds: string[] = []
+        let data
         for (const id of ids) {
-            let data
             try {
-                const request = createRequestObject({
+                const request = App.createRequest({
                     url: `${ReadManga_DOMAIN}/${id}`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
@@ -302,7 +302,7 @@ export class ReadManga extends Source {
                 data = await this.requestManager.schedule(request, 1)
             }
             catch(e){
-                const request = createRequestObject({
+                const request = App.createRequest({
                     url: `${AdultManga_DOMAIN}/${id}`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
@@ -310,11 +310,11 @@ export class ReadManga extends Source {
                 })
                 data = await this.requestManager.schedule(request, 1)
             }
-            let $ = this.cheerio.load(data.data)
-            if (this.parser.parseUpdatedManga($, this.cheerio, time, id) != null)
+            let $ = cheerio.load(data.data ?? '')
+            if (this.parser.parseUpdatedManga($, cheerio, time, id) != null)
                 collectedIds.push(id)
-            }
-        mangaUpdatesFoundCallback(createMangaUpdates({
+        }
+        mangaUpdatesFoundCallback(App.createMangaUpdates({
             ids: collectedIds
         }))
     }
@@ -329,32 +329,16 @@ export class ReadManga extends Source {
         return headers
     }
 
-    globalRequestHeaders(): RequestHeaders {
-        if (this.userAgentRandomizer !== '') {
-            return {
-                "referer": `${this.baseUrl}/`,
-                "user-agent": this.userAgentRandomizer,
-                "accept": "image/jpeg,image/png,image/*;q=0.8"
-            }
-        }
-        else {
-            return {
-                "referer": `${this.baseUrl}/`,
-                "accept": "image/jpeg,image/png,image/*;q=0.8"
-            }
-        }
-    }
-
-
     constructSearchRequest(searchQuery: SearchRequest, domain: string): any {
-        let params = `?&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`
+        const currentYear = new Date().getFullYear();
+        let params = `?&offset=&years=1950,${currentYear}&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`
         params += searchQuery.title? `&q=${searchQuery.title}` : `&q=`
         if (searchQuery.includedTags)
             for (const tag of searchQuery.includedTags) {
                 params += `&${tag.id}=in`
             }
         console.log('search parameters ' + params)
-        return createRequestObject({
+        return App.createRequest({
             url: `${domain}/search/advancedResults`,
             method: 'GET',
             headers: this.constructHeaders({}),

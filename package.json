@@ -1,37 +1,28 @@
 {
-  "name": "extensions",
-  "version": "1.0.0",
-  "description": "Additional sources for Paperback",
+  "name": "netskys-extensions",
+  "version": "0.0.0",
+  "repositoryName": "Netsky's Extensions (0.8)",
+  "description": "Netsky's extensions for 0.8!",
   "scripts": {
-    "start": "tsc && node dist/api.js",
-    "build": "tsc",
-    "test": "mocha --timeout 300000 -r ts-node/register src/**/*.test.ts",
-    "coverage": "nyc -r lcov -e .ts -x \"*.test.ts\" npm run test",
-    "bundle": "paperback bundle",
-    "serve": "paperback serve -p 8000"
+    "bundle": "npx paperback bundle",
+    "serve": "npx paperback serve",
+    "test": "npx paperback test"
   },
-  "author": "Paperback",
-  "license": "MIT",
-  "dependencies": {
-    "chai": "^4.2.0",
-    "chai-as-promised": "^7.1.1",
-    "cheerio": "^1.0.0-rc.10",
-    "moment": "^2.29.3",
-    "paperback-cli": "^1.4.0",
-    "paperback-extensions-common": "^5.0.0-alpha.7",
-    "ts-mocha": "^7.0.0",
-    "tsify": "^4.0.2",
-    "typescript": "^3.9.6"
-  },
+  "author": "Netsky",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "@types/cheerio": "^0.22.21",
-    "@types/mocha": "^7.0.2",
-    "@typescript-eslint/eslint-plugin": "^4.14.1",
-    "eslint": "^7.18.0",
-    "eslint-config-oclif": "^3.1.0",
-    "eslint-config-oclif-typescript": "^0.2.0",
-    "mocha": "^7.2.0",
-    "nyc": "^15.1.0",
-    "typedoc": "^0.17.6"
+    "@tsconfig/recommended": "^1.0.7",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^7.32.0",
+    "eslint-plugin-modules-newline": "^0.0.6",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "@paperback/toolchain": "^0.8.7",
+    "@paperback/types": "^0.8.7",
+    "cheerio": "^1.1.2",
+    "html-entities": "^2.5.2",
+    "moment": "^2.30.1"
   }
 }
