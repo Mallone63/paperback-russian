@@ -7,7 +7,8 @@ export class Parser {
 
     parseMangaDetails($: CheerioSelector, mangaId: string): Manga {
 
-        let titles = [$('h1 > span.name').text(), $('span.name')?.first().text()]
+        let rawTitles = [$('h1 > span.name').text(), $('span.name')?.first().text()]
+        let titles = rawTitles.map(t => decodeURIComponent(t))
         let imageContainer = $('div.picture-fotorama')
         let image = $('img', imageContainer).attr('src') ?? ''
 
@@ -27,8 +28,11 @@ export class Parser {
         released = $('span.elem_year > a').text()
         let timeArray = $('td.date').toArray()
 
-        
-        let updateTime = new Date($(timeArray[0]).attr('data-date') || released)
+        // Используем moment для парсинга даты, как в parseChapterList
+        let dateStr = $(timeArray[0]).attr('data-date') || released
+        let updateTime = moment(dateStr, 'DD.MM.YY').isValid() ? 
+            moment(dateStr, 'DD.MM.YY').toDate() : 
+            new Date(released || Date.now())
 
         status = $('p', 'div.subject-meta')?.first().text().includes('завершено') ? MangaStatus.COMPLETED : MangaStatus.ONGOING
         views = 0
@@ -41,9 +45,7 @@ export class Parser {
         //     tagArray0 = [...tagArray0, createTag({ id: id, label: label })]
         // }
         // let tagSections: TagSection[] = [createTagSection({ id: '0', label: 'Теги', tags: tagArray0 })]
-        return createManga({
-            id: mangaId,
-            rating: rating,
+        return {
             titles: titles,
             image: image,
             status: status,
@@ -53,7 +55,7 @@ export class Parser {
             // tags: tagSections,
             desc: this.decodeHTMLEntity(summary ?? ''),
             lastUpdate: updateTime
-        })
+        }
     }
 
 
@@ -70,14 +72,14 @@ export class Parser {
             let chapName = $(obj)?.text().trim()
             let time = moment($(timeArray[i]).attr('data-date'), 'DD.MM.YY')
             if (typeof chapterId === 'undefined' || isNaN(chapNum) || !time) continue
-            chapters.push(createChapter({
+            chapters.push({
                 id: chapterId,
                 mangaId: mangaId,
                 chapNum: Number(chapNum),
                 langCode: LanguageCode.RUSSIAN,
                 name: chapName,
                 time: time.toDate()
-            }))
+            })
         }
         return chapters
     }
@@ -87,28 +89,43 @@ export class Parser {
 
 
     parseChapterDetails($: CheerioSelector): string[] {
-        let scripts = $('script').toArray()
-        console.log('scripts found: ', scripts.length)
-        let pages = []
-        for (let script of scripts) {
-            if (script.children.length > 0 && script.children[0].data) {
-                console.log(script.children[0].data)
-                if (script.children[0].data.includes('rm_h.readerInit(')) {
-                    let links = [...script.children[0].data.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
-                    for (let link of links) {
-                        console.log(link)
-                        let strippedLink = link[1].replace('\',\'\',\"', '')
-                        if (!strippedLink.includes('rmr.rocks'))
-                            strippedLink = strippedLink.replace(/\?.*$/g, "")
-                        console.log(strippedLink)
-                        if (!strippedLink.includes('auto/15/49/36')) 
-                            pages.push(strippedLink)
-                    }
-                    break
+        const scripts = $('script').toArray();
+        
+        for (const script of scripts) {
+            if (!script.children.length || !script.children[0].data) continue;
+            
+            const scriptContent = script.children[0].data;
+            if (!scriptContent.includes('rm_h.readerInit(')) continue;
+
+            return this.extractPagesOptimized(scriptContent);
+        }
+        
+        return [];
+    }
+
+    private extractPagesOptimized(scriptContent: string): string[] {
+        try {
+            const pageRegex = /\[\'(https[^\']+)\'/g;
+            const pages: string[] = [];
+            let match;
+            
+            while ((match = pageRegex.exec(scriptContent)) !== null) {
+                let pageUrl = match[1].replace(/\',\'\',"?/, '');
+                
+                if (!pageUrl.includes('rmr.rocks')) {
+                    pageUrl = pageUrl.replace(/\?.*$/g, '');
+                }
+                
+                if (!pageUrl.includes('auto/15/49/36') && pageUrl.startsWith('https')) {
+                    pages.push(pageUrl);
                 }
             }
+            
+            return pages;
+        } catch (error) {
+            console.error('Failed to extract pages:', error);
+            return [];
         }
-        return pages
     }
 
 
@@ -131,11 +148,11 @@ export class Parser {
             }
             if (typeof id === 'undefined' || id.includes('/person/')) continue
             if (!collectedIds.includes(id)) {
-                mangaTiles.push(createMangaTile({
+                mangaTiles.push({
                     id: id,
-                    title: createIconText({ text: titleText }),
+                    title: { text: titleText },
                     image: image
-                }))
+                })
                 collectedIds.push(id)
             }
         }
@@ -177,10 +194,10 @@ export class Parser {
             if (label) {
                 let id = $(idArray[index]).attr('id')?.trim()
                 if (id)
-                    genres.push(createTag({ label, id }))
+                    genres.push({ label, id })
             }
         })
-        return [createTagSection({ id: '0', label: 'Теги', tags: genres })]
+        return [{ id: '0', label: 'Теги', tags: genres }]
     }
 
     parseHomePageSection($: CheerioSelector, cheerio: any): MangaTile[] {
@@ -202,11 +219,11 @@ export class Parser {
 
             if (typeof id === 'undefined' || typeof image === 'undefined') continue
             if (!collectedIds.includes(id)) {
-                tiles.push(createMangaTile({
+                tiles.push({
                     id: id,
-                    title: createIconText({ text: titleText }),
+                    title: { text: titleText },
                     image: image
-                }))
+                })
                 collectedIds.push(id)
             }
         }

@@ -21,9 +21,9 @@ const ReadManga_DOMAIN = 'https://web.usagi.one'
 const AdultManga_DOMAIN = 'https://1.seimanga.me'
 
 export const ReadMangaInfo: SourceInfo = {
-    version: '1.1.30',
+    version: '1.2.0',
     name: 'ReadManga',
-    description: 'Extension that pulls manga from readmanga.live and seimanga.me',
+    description: 'Extension that pulls manga from web.usagi.one and seimanga.me',
     author: 'mallone63',
     authorWebsite: 'https://github.com/mallone63',
     icon: "logo.png",
@@ -43,10 +43,65 @@ export const ReadMangaInfo: SourceInfo = {
 
 export class ReadManga extends Source {
 
-    requestManager = createRequestManager({
-        requestsPerSecond: 2,
-        requestTimeout: 30000,
-    })
+    // В v5 requestManager должен быть инициализирован по-другому
+    requestManager: any = {
+        schedule: async (request: any, retryCount: number) => {
+            // Простая реализация HTTP запроса вместо устаревшего requestManager
+            const response = await this.makeHttpRequest(request);
+            return response;
+        }
+    };
+
+    // Простая HTTP реализация для замены requestManager с улучшенной обработкой ошибок
+    async makeHttpRequest(request: any): Promise<any> {
+        const axios = require('axios');
+        try {
+            const url = request.url + (request.param || '');
+            const response = await axios({
+                method: request.method || 'GET',
+                url: url,
+                headers: request.headers || {},
+                timeout: 15000, // Уменьшено с 30000 для быстрого отклика
+                maxRedirects: 5,
+                validateStatus: (status: number) => status < 500 // Принимаем 4xx как валидные для обработки
+            });
+            return {
+                data: response.data,
+                status: response.status
+            };
+        } catch (error: any) {
+            return {
+                data: '',
+                status: error.response?.status || 500
+            };
+        }
+    }
+
+    // Улучшенный метод для запросов с fallback
+    async smartRequest(mangaId: string, path: string = '', param: string = ''): Promise<any> {
+        const urls = [
+            `${ReadManga_DOMAIN}/${mangaId}${path}`,
+            `${AdultManga_DOMAIN}/${mangaId}${path}`,
+            `${AdultManga_DOMAIN}${path}` // для случаев когда mangaId уже включён в path
+        ];
+
+        for (const url of urls) {
+            const request = {
+                url: url,
+                method: 'GET',
+                headers: this.constructHeaders({}),
+                param: param
+            };
+
+            const response = await this.requestManager.schedule(request, 1);
+            
+            if (response.status === 200 && response.data) {
+                return response;
+            }
+        }
+
+        throw new Error(`Failed to fetch data for ${mangaId}${path}`);
+    }
 
 
     baseUrl: string = ReadManga_DOMAIN
@@ -59,121 +114,101 @@ export class ReadManga extends Source {
     }
 
     async getMangaDetails(mangaId: string): Promise<Manga> {
-
-        let request = createRequestObject({
-            url: `${ReadManga_DOMAIN}/${mangaId}`,
-            method: 'GET',
-            headers: this.constructHeaders({}),
-            param: '?mtr=1'
-        })
-        let data = await this.requestManager.schedule(request, 1)
-        if (data.status === 404) {
-            request = createRequestObject({
-                url: `${AdultManga_DOMAIN}/${mangaId}`,
-                method: 'GET',
-                headers: this.constructHeaders({}),
-                param: '?mtr=1'
-            })
-            data = await this.requestManager.schedule(request, 1)            
+        try {
+            const response = await this.smartRequest(mangaId, '', '?mtr=1');
+            const $ = this.cheerio.load(response.data);
+            return this.parser.parseMangaDetails($, mangaId);
+        } catch (error) {
+            throw new Error(`Failed to get manga details for ${mangaId}: ${error}`);
         }
-        let $ = this.cheerio.load(data.data)
-
-        return this.parser.parseMangaDetails($, mangaId)
     }
 
 
     async getChapters(mangaId: string): Promise<Chapter[]> {
-        let chapters: Chapter[] = []
-        let request = createRequestObject({
-            url: `${ReadManga_DOMAIN}/${mangaId}`,
-            method: "GET",
-            headers: this.constructHeaders({}),
-            param: '?mtr=1'
-        })
-        let data = await this.requestManager.schedule(request, 1)
-        if (data.status === 404) {
-            request = createRequestObject({
-                url: `${AdultManga_DOMAIN}/${mangaId}`,
-                method: 'GET',
-                headers: this.constructHeaders({}),
-                param: '?mtr=1'
-            })
-            data = await this.requestManager.schedule(request, 1)            
+        try {
+            const response = await this.smartRequest(mangaId, '', '?mtr=1');
+            const $ = this.cheerio.load(response.data);
+            return this.parser.parseChapterList($, mangaId);
+        } catch (error) {
+            throw new Error(`Failed to get chapters for ${mangaId}: ${error}`);
         }
-        let $ = this.cheerio.load(data.data)
-        chapters = this.parser.parseChapterList($, mangaId)
-
-        return chapters
     }
 
 
     async getChapterDetails(mangaId: string, chapterId: string): Promise<ChapterDetails> {
-        let sources = [`${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
-            `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`, `${AdultManga_DOMAIN}/${chapterId}`]
-        let pages: string[] = []
-        let request
-        let data
-        let $
-        for (let source of sources) {
-            request = createRequestObject({
-                url: `${source}`,
-                method: 'GET',
-                headers: this.constructHeaders({}),
-                param: '?mtr=1'
-            })
-            data = await this.requestManager.schedule(request, 1)
-            $ = this.cheerio.load(data.data)
-            pages = this.parser.parseChapterDetails($)
-            if (pages.length > 0) break
-        }
-        console.log('found pages: ' + pages.length)
-        console.log(pages)
+        try {
+            const response = await this.smartRequest(mangaId, `/${chapterId}`, '?mtr=1');
+            const $ = this.cheerio.load(response.data);
+            const pages = this.parser.parseChapterDetails($);
+            
+            if (pages.length === 0) {
+                throw new Error(`No pages found for chapter ${chapterId}`);
+            }
 
-        return createChapterDetails({
-            id: chapterId,
-            mangaId: mangaId,
-            pages: pages,
-            longStrip: false
-        })
+            console.log('found pages: ' + pages.length);
+            console.log(pages);
+
+            return {
+                id: chapterId,
+                mangaId: mangaId,
+                pages: pages,
+                longStrip: false
+            };
+        } catch (error) {
+            throw new Error(`Failed to get chapter details for ${mangaId}/${chapterId}: ${error}`);
+        }
     }
 
 
 
     async getSearchResults(query: SearchRequest, metadata: any,): Promise<PagedResults> {
         let page: number = metadata?.page ?? 1
-        let domain = metadata?.nextSource ?? ReadManga_DOMAIN
-
-        let manga: any
+        let allManga: any[] = []
         let mData = undefined
 
-        let request = this.constructSearchRequest(query, domain)
+        // Создаем запросы для обоих доменов
+        const domains = [ReadManga_DOMAIN, AdultManga_DOMAIN]
+        const requests = domains.map(domain => this.constructSearchRequest(query, domain))
 
-        let data = await this.requestManager.schedule(request, 1)
-        let $ = this.cheerio.load(data.data)
-        manga = manga ? manga.concat(this.parser.parseSearchResults($, this.cheerio)) : this.parser.parseSearchResults($, this.cheerio)
-        if (!this.parser.isLastPage($)) {
-            mData = { page: (page + 1), nextSource: domain }
-        } else {
-            mData = undefined  // There are no more pages to continue on to, do not provide page metadata
+        try {
+            // Выполняем поиск по обоим доменам параллельно
+            const responses = await Promise.allSettled([
+                this.requestManager.schedule(requests[0], 1),
+                this.requestManager.schedule(requests[1], 1)
+            ])
+
+            // Обрабатываем результаты с каждого домена
+            for (let i = 0; i < responses.length; i++) {
+                const response = responses[i]
+                if (response.status === 'fulfilled' && response.value?.data) {
+                    const $ = this.cheerio.load(response.value.data)
+                    const domainResults = this.parser.parseSearchResults($, this.cheerio)
+                    allManga = allManga.concat(domainResults)
+                    
+                    // Проверяем, есть ли еще страницы (берем за основу первый домен)
+                    if (i === 0 && !this.parser.isLastPage($)) {
+                        mData = { page: (page + 1) }
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Error during search:', error)
         }
-        if (mData == undefined && domain == ReadManga_DOMAIN) // Done with readmanga, now lets parse mint
-            mData = { page: (page + 1), nextSource: AdultManga_DOMAIN }
 
-
-        return createPagedResults({
-            results: manga,
+        return {
+            results: allManga,
             metadata: mData
-        })
+        }
 
     }
 
 
-    async getSearchTags(): Promise<TagSection[]> {
-        const tagsIdRequest = createRequestObject({
+    async getTags(): Promise<TagSection[]> {
+        const tagsIdRequest = {
             url: `${ReadManga_DOMAIN}/search/advanced`,
             method: 'GET',
             headers: this.constructHeaders({})
-        })
+        }
         const searchData = await this.requestManager.schedule(tagsIdRequest, 1)
         let $ = this.cheerio.load(searchData.data)
         return this.parser.parseTags($)
@@ -184,64 +219,70 @@ export class ReadManga extends Source {
 
         const sections = [
             {
-                request: createRequestObject({
+                request: {
                     url: `${ReadManga_DOMAIN}/list`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?sortType=votes'
-                }),
-                section: createHomeSection({
+                },
+                section: {
                     id: '0',
                     title: 'С наивысшим рейтингом',
-                    view_more: true
-                }),
+                    view_more: true,
+                    items: []
+                },
             },
             {
-                request: createRequestObject({
+                request: {
                     url: `${ReadManga_DOMAIN}/list`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?sortType=created'
-                }),
-                section: createHomeSection({
+                },
+                section: {
                     id: '1',
                     title: 'Новинки',
                     view_more: true,
-                }),
+                    items: []
+                },
             },
             {
-                request: createRequestObject({
+                request: {
                     url: `${AdultManga_DOMAIN}/list`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?sortType=rate'
-                }),
-                section: createHomeSection({
+                },
+                section: {
                     id: '2',
                     title: 'Манга для взрослых',
                     view_more: true,
-                }),
+                    items: []
+                },
             },            
         ]
 
-        const promises: Promise<void>[] = []
-
+        // Отправляем пустые секции сразу
         for (const section of sections) {
-            // Let the app load empty sections
             sectionCallback(section.section)
-
-            // Get the section data
-            promises.push(
-                this.requestManager.schedule(section.request, 1).then(response => {
-                    const $ = this.cheerio.load(response.data)
-                    section.section.items = this.parser.parseSearchResults($, this.cheerio)
-                    sectionCallback(section.section)
-                }),
-            )
         }
 
-        // Make sure the function completes
-        await Promise.all(promises)
+        // Параллельная загрузка с улучшенной обработкой ошибок
+        const promises = sections.map(async (section) => {
+            try {
+                const response = await this.requestManager.schedule(section.request, 1);
+                const $ = this.cheerio.load(response.data);
+                section.section.items = this.parser.parseSearchResults($, this.cheerio);
+                sectionCallback(section.section);
+            } catch (error) {
+                console.warn(`Failed to load section ${section.section.id}:`, error);
+                // Секция остаётся пустой при ошибке
+                sectionCallback(section.section);
+            }
+        });
+
+        // Используем allSettled для обработки частичных ошибок
+        await Promise.allSettled(promises);
     }
 
 
@@ -264,11 +305,11 @@ export class ReadManga extends Source {
                 })
         }
 
-        let request = createRequestObject({
+        let request = {
             url: `${ReadManga_DOMAIN}${webPage}`,
             method: 'GET',
             headers: this.constructHeaders({})
-        })
+        }
 
         let data = await this.requestManager.schedule(request, 1)
         let $ = this.cheerio.load(data.data)
@@ -280,10 +321,10 @@ export class ReadManga extends Source {
             mData = undefined  // There are no more pages to continue on to, do not provide page metadata
         }
 
-        return createPagedResults({
+        return {
             results: manga,
             metadata: mData
-        })
+        }
     }
 
 
@@ -293,30 +334,30 @@ export class ReadManga extends Source {
         for (const id of ids) {
             let data
             try {
-                const request = createRequestObject({
+                const request = {
                     url: `${ReadManga_DOMAIN}/${id}`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?mtr=1'
-                })
+                }
                 data = await this.requestManager.schedule(request, 1)
             }
             catch(e){
-                const request = createRequestObject({
+                const request = {
                     url: `${AdultManga_DOMAIN}/${id}`,
                     method: 'GET',
                     headers: this.constructHeaders({}),
                     param: '?mtr=1'
-                })
+                }
                 data = await this.requestManager.schedule(request, 1)
             }
             let $ = this.cheerio.load(data.data)
             if (this.parser.parseUpdatedManga($, this.cheerio, time, id) != null)
                 collectedIds.push(id)
             }
-        mangaUpdatesFoundCallback(createMangaUpdates({
+        mangaUpdatesFoundCallback({
             ids: collectedIds
-        }))
+        })
     }
 
 
@@ -347,19 +388,20 @@ export class ReadManga extends Source {
 
 
     constructSearchRequest(searchQuery: SearchRequest, domain: string): any {
-        let params = `?&offset=&years=1950,2024&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`
+        const currentYear = new Date().getFullYear();
+        let params = `?&offset=&years=1950,${currentYear}&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`
         params += searchQuery.title? `&q=${searchQuery.title}` : `&q=`
         if (searchQuery.includedTags)
             for (const tag of searchQuery.includedTags) {
                 params += `&${tag.id}=in`
             }
         console.log('search parameters ' + params)
-        return createRequestObject({
+        return {
             url: `${domain}/search/advancedResults`,
             method: 'GET',
             headers: this.constructHeaders({}),
             param: encodeURI(params)
-        })
+        }
 
     }
 
