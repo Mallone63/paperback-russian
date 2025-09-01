@@ -81,7 +81,6 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
         return this.parser.parseMangaDetails($, mangaId)
     }
 
-
     async getChapters(mangaId: string): Promise<Chapter[]> {
         let chapters: Chapter[] = []
         let request = App.createRequest({
@@ -105,7 +104,6 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
 
         return chapters
     }
-
 
     async getChapterDetails(mangaId: string, chapterId: string): Promise<ChapterDetails> {
         let sources = [`${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
@@ -136,35 +134,65 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
         })
     }
 
-
-
     async getSearchResults(query: SearchRequest, metadata: any,): Promise<PagedResults> {
         let page: number = metadata?.page ?? 1
-        let domain = metadata?.nextSource ?? ReadManga_DOMAIN
-
-        let manga: any
+        let allManga: any[] = []
         let mData = undefined
 
-        const request = this.constructSearchRequest(query, domain)
+        // Search both sources simultaneously
+        const readMangaRequest = this.constructSearchRequest(query, ReadManga_DOMAIN)
+        const adultMangaRequest = this.constructSearchRequest(query, AdultManga_DOMAIN)
 
-        let data = await this.requestManager.schedule(request, 1)
-        let $ = cheerio.load(data.data ?? '')
-        manga = manga ? manga.concat(this.parser.parseSearchResults($, cheerio)) : this.parser.parseSearchResults($, cheerio)
-        if (!this.parser.isLastPage($)) {
-            mData = { page: (page + 1), nextSource: domain }
-        } else {
-            mData = undefined  // There are no more pages to continue on to, do not provide page metadata
+        try {
+            // Execute both requests in parallel
+            const [readMangaData, adultMangaData] = await Promise.all([
+                this.requestManager.schedule(readMangaRequest, 1),
+                this.requestManager.schedule(adultMangaRequest, 1)
+            ])
+
+            // Parse results from ReadManga
+            let readMangaResults: any[] = []
+            if (readMangaData.data) {
+                let $readManga = cheerio.load(readMangaData.data)
+                readMangaResults = this.parser.parseSearchResults($readManga, cheerio)
+            }
+
+            // Parse results from AdultManga
+            let adultMangaResults: any[] = []
+            if (adultMangaData.data) {
+                let $adultManga = cheerio.load(adultMangaData.data)
+                adultMangaResults = this.parser.parseSearchResults($adultManga, cheerio)
+            }
+
+            // Combine results from both sources
+            allManga = [...readMangaResults, ...adultMangaResults]
+
+            // Remove duplicates based on mangaId
+            const uniqueManga = allManga.filter((manga, index, self) => 
+                index === self.findIndex(m => m.mangaId === manga.mangaId)
+            )
+
+            allManga = uniqueManga
+
+            // Check if there are more pages (we'll use ReadManga as reference for pagination)
+            if (readMangaData.data) {
+                let $readManga = cheerio.load(readMangaData.data)
+                if (!this.parser.isLastPage($readManga)) {
+                    mData = { page: (page + 1) }
+                }
+            }
+
+        } catch (error) {
+            console.error('Error during search:', error)
+            // Fallback to empty results if both requests fail
+            allManga = []
         }
-        if (mData == undefined && domain == ReadManga_DOMAIN) // Done with readmanga, now lets parse mint
-            mData = { page: (page + 1), nextSource: AdultManga_DOMAIN }
-
 
         return App.createPagedResults({
-            results: manga || [],
+            results: allManga,
             metadata: mData
         })
     }
-
 
     async getSearchTags(): Promise<TagSection[]> {
         const tagsIdRequest = App.createRequest({
@@ -176,7 +204,6 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
         let $ = cheerio.load(searchData.data ?? '')
         return this.parser.parseTags($)
     }
-
 
     async getHomePageSections(sectionCallback: (section: HomeSection) => void): Promise<void> {
 
@@ -245,7 +272,6 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
         await Promise.all(promises)
     }
 
-
     async getViewMoreItems(homepageSectionId: string, metadata: any): Promise<PagedResults> {
         let webPage = ''
         let page: number = metadata?.page ?? 0
@@ -287,7 +313,6 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
         })
     }
 
-
     async filterUpdatedManga(mangaUpdatesFoundCallback: (updates: MangaUpdates) => void, time: Date, ids: string[]): Promise<void> {
         const collectedIds: string[] = []
         let data
@@ -319,7 +344,6 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
         }))
     }
 
-
     constructHeaders(headers: any, refererPath?: string): any {
         if (this.userAgentRandomizer !== '') {
             headers["user-agent"] = this.userAgentRandomizer
@@ -346,8 +370,4 @@ export class ReadManga implements SearchResultsProviding, MangaProviding, Chapte
         })
 
     }
-
-
-
-
 }

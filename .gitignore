@@ -9,8 +9,11 @@ reference
 coverage
 docs
 bundles
+tmp
 
 .idea
 
-# mac stuff
 .DS_Store
+.vscode
+.run
+.github

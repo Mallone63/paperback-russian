@@ -1,9 +1,6 @@
 import moment from 'moment'
 import {
     Chapter,
-    ChapterDetails,
-    HomeSection,
-    HomeSectionType,
     PartialSourceManga,
     SourceManga,
     Tag,
@@ -11,8 +8,6 @@ import {
 } from '@paperback/types'
 
 import { CheerioAPI } from 'cheerio'
-
-const READMANGA_DOMAIN = 'https://web.usagi.one/'
 
 export class Parser {
 
@@ -22,36 +17,22 @@ export class Parser {
         let imageContainer = $('div.picture-fotorama')
         let image = $('img', imageContainer).attr('src') ?? ''
 
-        let status = 'Ongoing', author = '', released, rating: number = 0, artist = '', views, summary
+        let status = 'Ongoing', author = '', rating: number = 0, artist = '', summary
 
-        let tagArray0: Tag[] = []
-        let authorArray = ($('span.elem_author > a').length === 0 ?
-            $('span.elem_screenwriter > a') : $('span.elem_author > a')).toArray().forEach(element => {
+        ($('span.elem_author > a').length === 0 ?
+            $('span.elem_screenwriter > a') : $('span.elem_author > a')).toArray().forEach((element: any) => {
                 author = author.concat($(element).text(), ' ')
-            })
-        let artistArray = ($('span.elem_artist > a').length === 0 ?
-            $('span.elem_illustrator > a') : $('span.elem_artist > a')).toArray().forEach(element => {
+            });
+        ($('span.elem_artist > a').length === 0 ?
+            $('span.elem_illustrator > a') : $('span.elem_artist > a')).toArray().forEach((element: any) => {
                 artist = artist.concat($(element).text(), ' ')
-            })
+            });
         if (artist === '') artist = author
         summary = $("#tab-description > div").text()
-        released = $('span.elem_year > a').text()
-        let timeArray = $('td.date').toArray()
-
-        
-        let updateTime = new Date($(timeArray[0]).attr('data-date') || released)
 
         status = $('p', 'div.subject-meta')?.first().text().includes('завершено') ? 'Completed' : 'Ongoing'
-        views = 0
 
-        // let genres = $('span.elem_genre').toArray().slice(1)
-        // for (let obj of genres) {
-        //     let id = $(obj).text().replace(',', '').trim()
-        //     let label = $(obj).text().replace(',', '').trim()
-        //     if (typeof id === 'undefined' || typeof label === 'undefined') continue
-        //     tagArray0 = [...tagArray0, App.createTag({ id: id, label: label })]
-        // }
-        // let tagSections: TagSection[] = [App.createTagSection({ id: '0', label: 'Теги', tags: tagArray0 })]
+
         return App.createSourceManga({
             id: mangaId,
             mangaInfo: App.createMangaInfo({
@@ -61,13 +42,11 @@ export class Parser {
                 status: status,
                 author: author.trim(),
                 artist: artist.trim(),
-                // tags: tagSections,
                 desc: this.decodeHTMLEntity(summary ?? '')
 
             })
         })
     }
-
 
     parseChapterList($: CheerioAPI, mangaId: string): Chapter[] {
 
@@ -93,13 +72,9 @@ export class Parser {
         return chapters
     }
 
-
-
-
-
     parseChapterDetails($: CheerioAPI): string[] {
         const scripts = $('script')
-        console.log('scripts found: ', scripts.length)
+        // console.log('scripts found: ', scripts.length)
         let pages: string[] = []
         for (const script of scripts.toArray()) {
             const scriptContent = $(script).html()
@@ -107,11 +82,11 @@ export class Parser {
                 const links = [...scriptContent.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
                 for (const link of links) {
                     if (link[1]) {
-                        console.log(link)
+                        // console.log(link)
                         let strippedLink = link[1].replace('\',\'\',\"', '')
                         if (!strippedLink.includes('rmr.rocks'))
                             strippedLink = strippedLink.replace(/\?.*$/g, "")
-                        console.log(strippedLink)
+                        // console.log(strippedLink)
                         if (!strippedLink.includes('auto/15/49/36'))
                             pages.push(strippedLink)
                     }
@@ -121,7 +96,6 @@ export class Parser {
         }
         return pages
     }
-
 
     parseSearchResults($: CheerioAPI, cheerio: any): any {
         let mangaTiles: PartialSourceManga[] = []
@@ -153,19 +127,17 @@ export class Parser {
         return mangaTiles
     }
 
-
     parseUpdatedManga($: CheerioAPI, cheerio: any, time: Date, id: string): any {
         let timeArray = $('td.date').toArray()
 
-        
+
         let updateTime = moment($(timeArray[0]).attr('data-date'), 'DD.MM.YY')
-        
+
         let lastUpdatedTime = moment(time)
         if (lastUpdatedTime.isBefore(updateTime))
             return id
         return null
     }
-
 
     getTagsNames($: CheerioAPI): string[] {
 
@@ -194,7 +166,7 @@ export class Parser {
         return [App.createTagSection({ id: '0', label: 'Теги', tags: genres })]
     }
 
-    parseHomePageSection($: CheerioAPI, cheerio: any): PartialSourceManga[] {
+    parseHomePageSection($: CheerioAPI, cheerio: any, domain: string): PartialSourceManga[] {
 
         let tiles: PartialSourceManga[] = []
         let collectedIds: string[] = []
@@ -209,7 +181,7 @@ export class Parser {
             //Tooltip Selecting 
             let imageCheerio = cheerio.load($('td', $(obj)).first().attr('title') ?? '')
             let url = this.decodeHTMLEntity(imageCheerio('img').attr('src'))
-            let image = url.includes('http') ? url : `${READMANGA_DOMAIN}${url}`
+            let image = url.includes('http') ? url : `${domain}${url}`
 
             if (typeof id === 'undefined' || typeof image === 'undefined') continue
             if (!collectedIds.includes(id)) {
@@ -224,11 +196,9 @@ export class Parser {
         return tiles
     }
 
-
     isLastPage($: CheerioAPI): boolean {
         return $('i.fa.fa-arrow-right').toArray().length > 0 ? false : true
     }
-
 
     decodeHTMLEntity(str: string): string {
         return str.replace(/&#(\d+);/g, function (match, dec) {
