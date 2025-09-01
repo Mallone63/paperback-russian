@@ -19417,7 +19417,7 @@ var _Sources = (() => {
       for (let obj of descArray) {
         let titleText = $2("a", $2(obj)).text();
         let id = $2("a", $2(obj)).attr("href")?.replace("/", "");
-        let image = imgArray[index2]?.attribs["data-original"];
+        let image = imgArray[index2]?.attribs["data-original"]?.replace("_p", "");
         index2++;
         if (!titleText || !id || !image) {
           continue;
