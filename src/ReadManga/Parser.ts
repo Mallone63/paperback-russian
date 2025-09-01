@@ -109,7 +109,7 @@ export class Parser {
         for (let obj of descArray) {
             let titleText = $('a', $(obj)).text()
             let id = $('a', $(obj)).attr('href')?.replace('/', '')
-            let image = imgArray[index]?.attribs['data-original']
+            let image = imgArray[index]?.attribs['data-original']?.replace('_p', '')
             index++
             if (!titleText || !id || !image) {
                 continue

@@ -1,15 +1,14 @@
 {
-  "name": "netskys-extensions",
-  "version": "0.0.0",
-  "repositoryName": "Netsky's Extensions (0.8)",
-  "description": "Netsky's extensions for 0.8!",
+  "name": "paperback-russian",
+  "version": "1.2.1",
+  "repositoryName": "mallone63 paperback extension",
   "scripts": {
     "bundle": "npx paperback bundle",
     "serve": "npx paperback serve",
     "test": "npx paperback test"
   },
-  "author": "Netsky",
-  "license": "GPL-3.0-or-later",
+  "author": "mallone63",
+  "license": "MIT",
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.7",
     "@typescript-eslint/eslint-plugin": "^5.62.0",

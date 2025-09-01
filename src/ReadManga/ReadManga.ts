@@ -25,7 +25,7 @@ const ReadManga_DOMAIN = 'https://web.usagi.one'
 const AdultManga_DOMAIN = 'https://1.seimanga.me'
 
 export const ReadMangaInfo: SourceInfo = {
-    version: '1.1.40',
+    version: '1.2.1',
     name: 'ReadManga',
     description: 'Extension that pulls manga from readmanga.live and seimanga.me',
     author: 'mallone63',
