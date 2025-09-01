@@ -19337,27 +19337,21 @@ var _Sources = (() => {
 
   // src/ReadManga/Parser.ts
   var import_moment = __toESM(require_moment());
-  var READMANGA_DOMAIN = "https://web.usagi.one/";
   var Parser3 = class {
     parseMangaDetails($2, mangaId) {
       let titles = [$2("h1 > span.name").text(), $2("span.name")?.first().text()];
       let imageContainer = $2("div.picture-fotorama");
       let image = $2("img", imageContainer).attr("src") ?? "";
-      let status = "Ongoing", author = "", released, rating = 0, artist = "", views, summary;
-      let tagArray0 = [];
-      let authorArray = ($2("span.elem_author > a").length === 0 ? $2("span.elem_screenwriter > a") : $2("span.elem_author > a")).toArray().forEach((element) => {
+      let status = "Ongoing", author = "", rating = 0, artist = "", summary;
+      ($2("span.elem_author > a").length === 0 ? $2("span.elem_screenwriter > a") : $2("span.elem_author > a")).toArray().forEach((element) => {
         author = author.concat($2(element).text(), " ");
       });
-      let artistArray = ($2("span.elem_artist > a").length === 0 ? $2("span.elem_illustrator > a") : $2("span.elem_artist > a")).toArray().forEach((element) => {
+      ($2("span.elem_artist > a").length === 0 ? $2("span.elem_illustrator > a") : $2("span.elem_artist > a")).toArray().forEach((element) => {
         artist = artist.concat($2(element).text(), " ");
       });
       if (artist === "") artist = author;
       summary = $2("#tab-description > div").text();
-      released = $2("span.elem_year > a").text();
-      let timeArray = $2("td.date").toArray();
-      let updateTime = new Date($2(timeArray[0]).attr("data-date") || released);
       status = $2("p", "div.subject-meta")?.first().text().includes("\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E") ? "Completed" : "Ongoing";
-      views = 0;
       return App.createSourceManga({
         id: mangaId,
         mangaInfo: App.createMangaInfo({
@@ -19367,7 +19361,6 @@ var _Sources = (() => {
           status,
           author: author.trim(),
           artist: artist.trim(),
-          // tags: tagSections,
           desc: this.decodeHTMLEntity(summary ?? "")
         })
       });
@@ -19395,7 +19388,6 @@ var _Sources = (() => {
     }
     parseChapterDetails($2) {
       const scripts = $2("script");
-      console.log("scripts found: ", scripts.length);
       let pages = [];
       for (const script of scripts.toArray()) {
         const scriptContent = $2(script).html();
@@ -19403,11 +19395,9 @@ var _Sources = (() => {
           const links = [...scriptContent.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
           for (const link of links) {
             if (link[1]) {
-              console.log(link);
               let strippedLink = link[1].replace(`','',"`, "");
               if (!strippedLink.includes("rmr.rocks"))
                 strippedLink = strippedLink.replace(/\?.*$/g, "");
-              console.log(strippedLink);
               if (!strippedLink.includes("auto/15/49/36"))
                 pages.push(strippedLink);
             }
@@ -19475,7 +19465,7 @@ var _Sources = (() => {
       });
       return [App.createTagSection({ id: "0", label: "\u0422\u0435\u0433\u0438", tags: genres })];
     }
-    parseHomePageSection($2, cheerio) {
+    parseHomePageSection($2, cheerio, domain) {
       let tiles = [];
       let collectedIds = [];
       for (let obj of $2("tr", $2(".listing")).toArray()) {
@@ -19486,7 +19476,7 @@ var _Sources = (() => {
         }
         let imageCheerio = cheerio.load($2("td", $2(obj)).first().attr("title") ?? "");
         let url = this.decodeHTMLEntity(imageCheerio("img").attr("src"));
-        let image = url.includes("http") ? url : `${READMANGA_DOMAIN}${url}`;
+        let image = url.includes("http") ? url : `${domain}${url}`;
         if (typeof id === "undefined" || typeof image === "undefined") continue;
         if (!collectedIds.includes(id)) {
           tiles.push(App.createPartialSourceManga({
@@ -19614,22 +19604,42 @@ var _Sources = (() => {
     }
     async getSearchResults(query, metadata) {
       let page = metadata?.page ?? 1;
-      let domain = metadata?.nextSource ?? ReadManga_DOMAIN;
-      let manga;
+      let allManga = [];
       let mData = void 0;
-      const request = this.constructSearchRequest(query, domain);
-      let data2 = await this.requestManager.schedule(request, 1);
-      let $2 = load(data2.data ?? "");
-      manga = manga ? manga.concat(this.parser.parseSearchResults($2, browser_exports)) : this.parser.parseSearchResults($2, browser_exports);
-      if (!this.parser.isLastPage($2)) {
-        mData = { page: page + 1, nextSource: domain };
-      } else {
-        mData = void 0;
+      const readMangaRequest = this.constructSearchRequest(query, ReadManga_DOMAIN);
+      const adultMangaRequest = this.constructSearchRequest(query, AdultManga_DOMAIN);
+      try {
+        const [readMangaData, adultMangaData] = await Promise.all([
+          this.requestManager.schedule(readMangaRequest, 1),
+          this.requestManager.schedule(adultMangaRequest, 1)
+        ]);
+        let readMangaResults = [];
+        if (readMangaData.data) {
+          let $readManga = load(readMangaData.data);
+          readMangaResults = this.parser.parseSearchResults($readManga, browser_exports);
+        }
+        let adultMangaResults = [];
+        if (adultMangaData.data) {
+          let $adultManga = load(adultMangaData.data);
+          adultMangaResults = this.parser.parseSearchResults($adultManga, browser_exports);
+        }
+        allManga = [...readMangaResults, ...adultMangaResults];
+        const uniqueManga = allManga.filter(
+          (manga, index2, self) => index2 === self.findIndex((m) => m.mangaId === manga.mangaId)
+        );
+        allManga = uniqueManga;
+        if (readMangaData.data) {
+          let $readManga = load(readMangaData.data);
+          if (!this.parser.isLastPage($readManga)) {
+            mData = { page: page + 1 };
+          }
+        }
+      } catch (error) {
+        console.error("Error during search:", error);
+        allManga = [];
       }
-      if (mData == void 0 && domain == ReadManga_DOMAIN)
-        mData = { page: page + 1, nextSource: AdultManga_DOMAIN };
       return App.createPagedResults({
-        results: manga || [],
+        results: allManga,
         metadata: mData
       });
     }
