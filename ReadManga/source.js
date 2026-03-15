@@ -19343,8 +19343,7 @@ var _Sources = (() => {
         $2('meta[itemprop="name"]').attr("content") ?? "",
         $2('meta[itemprop="alternativeHeadline"]').attr("content") ?? ""
       ];
-      let imageContainer = $2("div.swiper-slide");
-      let image = $2("img", imageContainer).attr("src") ?? "";
+      let image = $2("img.cr-hero-poster__img").attr("src");
       let status = "Ongoing", author = "", rating = 0, artist = "", summary;
       author = $2('.cr-main-person-item:contains("\u0421\u0446\u0435\u043D\u0430\u0440\u0438\u0441\u0442\u044B") a.cr-main-person-item__name').map((i, el) => $2(el).text().trim()).get().join(", ");
       artist = $2('.cr-main-person-item:contains("\u0425\u0443\u0434\u043E\u0436\u043D\u0438\u043A\u0438") a.cr-main-person-item__name').map((i, el) => $2(el).text().trim()).get().join(", ");
