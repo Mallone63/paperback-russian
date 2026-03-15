@@ -19339,19 +19339,17 @@ var _Sources = (() => {
   var import_moment = __toESM(require_moment());
   var Parser3 = class {
     parseMangaDetails($2, mangaId) {
-      let titles = [$2("h1 > span.name").text(), $2("span.name")?.first().text()];
-      let imageContainer = $2("div.picture-fotorama");
+      let titles = [
+        $2('meta[itemprop="name"]').attr("content") ?? "",
+        $2('meta[itemprop="alternativeHeadline"]').attr("content") ?? ""
+      ];
+      let imageContainer = $2("div.swiper-slide");
       let image = $2("img", imageContainer).attr("src") ?? "";
       let status = "Ongoing", author = "", rating = 0, artist = "", summary;
-      ($2("span.elem_author > a").length === 0 ? $2("span.elem_screenwriter > a") : $2("span.elem_author > a")).toArray().forEach((element) => {
-        author = author.concat($2(element).text(), " ");
-      });
-      ($2("span.elem_artist > a").length === 0 ? $2("span.elem_illustrator > a") : $2("span.elem_artist > a")).toArray().forEach((element) => {
-        artist = artist.concat($2(element).text(), " ");
-      });
-      if (artist === "") artist = author;
-      summary = $2("#tab-description > div").text();
-      status = $2("p", "div.subject-meta")?.first().text().includes("\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E") ? "Completed" : "Ongoing";
+      author = $2('.cr-main-person-item:contains("\u0421\u0446\u0435\u043D\u0430\u0440\u0438\u0441\u0442\u044B") a.cr-main-person-item__name').map((i, el) => $2(el).text().trim()).get().join(", ");
+      artist = $2('.cr-main-person-item:contains("\u0425\u0443\u0434\u043E\u0436\u043D\u0438\u043A\u0438") a.cr-main-person-item__name').map((i, el) => $2(el).text().trim()).get().join(", ");
+      summary = $2("div.cr-description__content > div").text();
+      status = $2("span.cr-info-details__status").first().text().includes("\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0430\u0435\u0442\u0441\u044F") ? "Ongoing" : "Completed";
       return App.createSourceManga({
         id: mangaId,
         mangaInfo: App.createMangaInfo({
@@ -19503,7 +19501,7 @@ var _Sources = (() => {
   var ReadManga_DOMAIN = "https://web.usagi.one";
   var AdultManga_DOMAIN = "https://1.seimanga.me";
   var ReadMangaInfo = {
-    version: "1.1.40",
+    version: "1.2.1",
     name: "ReadManga",
     description: "Extension that pulls manga from readmanga.live and seimanga.me",
     author: "mallone63",
