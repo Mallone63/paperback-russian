@@ -19497,7 +19497,7 @@ var _Sources = (() => {
   };
 
   // src/ReadManga/ReadManga.ts
-  var ReadManga_DOMAIN = "https://web.usagi.one";
+  var ReadManga_DOMAIN = "https://a.zazaza.me";
   var AdultManga_DOMAIN = "https://1.seimanga.me";
   var ReadMangaInfo = {
     version: "1.2.1",
