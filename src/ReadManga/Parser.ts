@@ -13,24 +13,20 @@ export class Parser {
 
     parseMangaDetails($: CheerioAPI, mangaId: string): SourceManga {
 
-        let titles = [$('h1 > span.name').text(), $('span.name')?.first().text()]
-        let imageContainer = $('div.picture-fotorama')
-        let image = $('img', imageContainer).attr('src') ?? ''
+        let titles = [
+            $('meta[itemprop="name"]').attr('content') ?? '',
+            $('meta[itemprop="alternativeHeadline"]').attr('content') ?? ''
+        ];       
+        let image = $('img.cr-hero-poster__img[src]').attr('src') ?? ''
 
         let status = 'Ongoing', author = '', rating: number = 0, artist = '', summary
 
-        ($('span.elem_author > a').length === 0 ?
-            $('span.elem_screenwriter > a') : $('span.elem_author > a')).toArray().forEach((element: any) => {
-                author = author.concat($(element).text(), ' ')
-            });
-        ($('span.elem_artist > a').length === 0 ?
-            $('span.elem_illustrator > a') : $('span.elem_artist > a')).toArray().forEach((element: any) => {
-                artist = artist.concat($(element).text(), ' ')
-            });
-        if (artist === '') artist = author
-        summary = $("#tab-description > div").text()
+        author = $('.cr-main-person-item:contains("Сценаристы") a.cr-main-person-item__name').map((i,el)=>$(el).text().trim()).get().join(', ');
 
-        status = $('p', 'div.subject-meta')?.first().text().includes('завершено') ? 'Completed' : 'Ongoing'
+        artist = $('.cr-main-person-item:contains("Художники") a.cr-main-person-item__name').map((i,el)=>$(el).text().trim()).get().join(', ');
+        summary = $("div.cr-description__content > div").first().text()
+
+        status = $("span.cr-info-details__status").first().text().includes('Продолжается') ? 'Ongoing' : 'Completed'
 
 
         return App.createSourceManga({

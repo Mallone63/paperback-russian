@@ -21,7 +21,7 @@ import * as cheerio from 'cheerio'
 
 import { Parser, } from './Parser'
 
-const ReadManga_DOMAIN = 'https://web.usagi.one'
+const ReadManga_DOMAIN = 'https://a.zazaza.me'
 const AdultManga_DOMAIN = 'https://1.seimanga.me'
 
 export const ReadMangaInfo: SourceInfo = {
