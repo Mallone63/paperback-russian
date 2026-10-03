@@ -19405,20 +19405,25 @@ var _Sources = (() => {
       }
       return chapters;
     }
-    parseChapterDetails($2) {
+    parseChapterDetails($2, domain) {
       const pages = [];
       for (const script of $2("script").toArray()) {
         const scriptContent = $2(script).html() ?? "";
         if (!scriptContent.includes("rm_h.readerInit(")) continue;
-        const regex = /\[\'(https:\/\/[^']+)\'\s*,\s*\'\'\s*,\s*"([^"]+)"/g;
+        const regex = /\[\'([^']*)\'\s*,\s*\'\'\s*,\s*"([^"]+)"/g;
         let match;
         while ((match = regex.exec(scriptContent)) !== null) {
           const base = match[1];
-          const path = match[2];
-          if (base && path) {
-            const url = base + path;
-            if (!pages.includes(url)) pages.push(url);
+          const rawPath = match[2];
+          if (!rawPath) continue;
+          const path = rawPath.replace(/\?.*$/, "");
+          let url;
+          if (base) {
+            url = base + path;
+          } else {
+            url = domain + (path.startsWith("/") ? path : `/${path}`);
           }
+          if (!pages.includes(url)) pages.push(url);
         }
         break;
       }
@@ -19531,7 +19536,7 @@ var _Sources = (() => {
         });
         const data2 = await this.requestManager.schedule(request, 1);
         const $2 = load(data2.data ?? "");
-        pages = this.parser.parseChapterDetails($2);
+        pages = this.parser.parseChapterDetails($2, source.domain);
         if (pages.length > 0) break;
       }
       return App.createChapterDetails({
