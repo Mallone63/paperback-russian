@@ -4738,14 +4738,6 @@ var _Sources = (() => {
   });
   var import_types2 = __toESM(require_lib());
 
-  // node_modules/cheerio/dist/browser/index.js
-  var browser_exports = {};
-  __export(browser_exports, {
-    contains: () => contains,
-    load: () => load,
-    merge: () => merge
-  });
-
   // node_modules/cheerio/dist/browser/static.js
   var static_exports = {};
   __export(static_exports, {
@@ -19339,166 +19331,153 @@ var _Sources = (() => {
   var import_moment = __toESM(require_moment());
   var Parser3 = class {
     parseMangaDetails($2, mangaId) {
-      let titles = [
+      const titles = [
         $2('meta[itemprop="name"]').attr("content") ?? "",
         $2('meta[itemprop="alternativeHeadline"]').attr("content") ?? ""
       ];
-      let image = $2("img.cr-hero-poster__img[src]").attr("src") ?? "";
-      let status = "Ongoing", author = "", rating = 0, artist = "", summary;
-      author = $2('.cr-main-person-item:contains("\u0421\u0446\u0435\u043D\u0430\u0440\u0438\u0441\u0442\u044B") a.cr-main-person-item__name').map((i, el) => $2(el).text().trim()).get().join(", ");
-      artist = $2('.cr-main-person-item:contains("\u0425\u0443\u0434\u043E\u0436\u043D\u0438\u043A\u0438") a.cr-main-person-item__name').map((i, el) => $2(el).text().trim()).get().join(", ");
-      summary = $2("div.cr-description__content > div").first().text();
-      status = $2("span.cr-info-details__status").first().text().includes("\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0430\u0435\u0442\u0441\u044F") ? "Ongoing" : "Completed";
+      const image = $2("img.cr-hero-poster__img[src]").attr("src") ?? "";
+      const productionStatus = $2("span[data-production-status]").first().attr("data-production-status");
+      const status = productionStatus === "FINISHED" ? "Completed" : "Ongoing";
+      const author = this.collectPersonNames($2, "\u0421\u0446\u0435\u043D\u0430\u0440\u0438\u0441\u0442\u044B");
+      const artist = this.collectPersonNames($2, "\u0425\u0443\u0434\u043E\u0436\u043D\u0438\u043A\u0438");
+      const summary = $2("div.cr-description__content").first().text();
       return App.createSourceManga({
         id: mangaId,
         mangaInfo: App.createMangaInfo({
-          rating,
+          rating: 0,
           titles,
           image,
           status,
-          author: author.trim(),
-          artist: artist.trim(),
-          desc: this.decodeHTMLEntity(summary ?? "")
+          author,
+          artist,
+          desc: this.decodeHTMLEntity(summary.trim())
         })
       });
     }
+    collectPersonNames($2, role) {
+      const names = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const item of $2(".cr-main-person-item").toArray()) {
+        const roleText = $2(".cr-main-person-item__role", item).first().text().trim();
+        if (roleText !== role) continue;
+        for (const nameEl of $2(".cr-main-person-item__name", item).toArray()) {
+          const name = $2(nameEl).text().trim();
+          if (name && !seen.has(name)) {
+            seen.add(name);
+            names.push(name);
+          }
+        }
+      }
+      return names.join(", ");
+    }
     parseChapterList($2, mangaId) {
-      let chapters = [];
-      let chapArray = $2("a.cp-l").toArray().reverse();
-      let timeArray = $2("td.date").toArray().reverse();
+      const chapters = [];
+      const chapArray = $2("a.cp-l").toArray().reverse();
+      const timeArray = $2("td.date").toArray().reverse();
       for (let i = 0; i < chapArray.length; i++) {
-        let obj = chapArray[i];
-        let chapterId = $2(obj)?.attr("href")?.replace(`/${mangaId}/`, "");
-        let chapNum = i + 1;
-        let chapName = $2(obj)?.text().trim();
-        let time = (0, import_moment.default)($2(timeArray[i]).attr("data-date"), "DD.MM.YY");
-        if (typeof chapterId === "undefined" || isNaN(chapNum) || !time) continue;
+        const anchor = chapArray[i];
+        if (!anchor) continue;
+        const href = $2(anchor).attr("href");
+        if (!href) continue;
+        const chapterId = href.replace(`/${mangaId}/`, "");
+        if (!chapterId || chapterId === href) continue;
+        const dateNode = timeArray[i];
+        if (!dateNode) continue;
+        const time = (0, import_moment.default)($2(dateNode).attr("data-date"), "DD.MM.YY");
+        if (!time.isValid()) continue;
+        const name = $2(anchor).text().trim();
+        const dataNum = $2(anchor).closest("[data-num]").attr("data-num");
+        let chapNum = dataNum ? Number(dataNum) / 10 : NaN;
+        if (isNaN(chapNum)) {
+          const lastSegment = chapterId.split("/").pop() ?? "";
+          chapNum = parseFloat(lastSegment);
+        }
+        if (isNaN(chapNum)) {
+          chapNum = i + 1;
+        }
         chapters.push(App.createChapter({
           id: chapterId,
-          chapNum: Number(chapNum),
+          chapNum,
           langCode: "RU",
-          name: chapName,
+          name: name || String(chapNum),
           time: time.toDate()
         }));
       }
       return chapters;
     }
     parseChapterDetails($2) {
-      const scripts = $2("script");
-      let pages = [];
-      for (const script of scripts.toArray()) {
-        const scriptContent = $2(script).html();
-        if (scriptContent && scriptContent.includes("rm_h.readerInit(")) {
-          const links = [...scriptContent.matchAll(/(?:\[\'(https.*?)\"\,)/ig)];
-          for (const link of links) {
-            if (link[1]) {
-              let strippedLink = link[1].replace(`','',"`, "");
-              if (!strippedLink.includes("rmr.rocks"))
-                strippedLink = strippedLink.replace(/\?.*$/g, "");
-              if (!strippedLink.includes("auto/15/49/36"))
-                pages.push(strippedLink);
-            }
+      const pages = [];
+      for (const script of $2("script").toArray()) {
+        const scriptContent = $2(script).html() ?? "";
+        if (!scriptContent.includes("rm_h.readerInit(")) continue;
+        const regex = /\[\'(https:\/\/[^']+)\'\s*,\s*\'\'\s*,\s*"([^"]+)"/g;
+        let match;
+        while ((match = regex.exec(scriptContent)) !== null) {
+          const base = match[1];
+          const path = match[2];
+          if (base && path) {
+            const url = base + path;
+            if (!pages.includes(url)) pages.push(url);
           }
-          break;
         }
+        break;
       }
       return pages;
     }
-    parseSearchResults($2, cheerio) {
-      let mangaTiles = [];
-      let collectedIds = [];
-      let directManga = $2("div.tile");
-      let descArray = $2("h3", directManga).toArray();
-      let imgArray = $2("img.lazy.img-fluid", directManga).toArray();
-      let index2 = 0;
-      for (let obj of descArray) {
-        let titleText = $2("a", $2(obj)).text();
-        let id = $2("a", $2(obj)).attr("href")?.replace("/", "");
-        let image = imgArray[index2]?.attribs["data-original"]?.replace("_p", "");
-        index2++;
-        if (!titleText || !id || !image) {
-          continue;
-        }
-        if (typeof id === "undefined" || id.includes("/person/")) continue;
-        if (!collectedIds.includes(id)) {
-          mangaTiles.push(App.createPartialSourceManga({
-            mangaId: id,
-            title: titleText,
-            image
-          }));
-          collectedIds.push(id);
-        }
+    parseSearchResults($2) {
+      const mangaTiles = [];
+      const collectedIds = /* @__PURE__ */ new Set();
+      for (const tile of $2("div.tile").toArray()) {
+        const link = $2("div.desc h3 > a, div.desc > a", tile).first();
+        const id = (link.attr("href") ?? "").replace("/", "").trim();
+        const titleText = (link.text() || link.attr("title") || "").trim();
+        const image = ($2("img.lazy.img-fluid", tile).attr("data-original") ?? "").replace("_p", "");
+        if (!id || !titleText || !image) continue;
+        if (id.includes("/person/")) continue;
+        if (collectedIds.has(id)) continue;
+        collectedIds.add(id);
+        mangaTiles.push(App.createPartialSourceManga({
+          mangaId: id,
+          title: this.decodeHTMLEntity(titleText),
+          image
+        }));
       }
       return mangaTiles;
     }
-    parseUpdatedManga($2, cheerio, time, id) {
-      let timeArray = $2("td.date").toArray();
-      let updateTime = (0, import_moment.default)($2(timeArray[0]).attr("data-date"), "DD.MM.YY");
-      let lastUpdatedTime = (0, import_moment.default)(time);
-      if (lastUpdatedTime.isBefore(updateTime))
-        return id;
+    parseUpdatedManga($2, time, id) {
+      const dateAttr = $2("td.date").first().attr("data-date");
+      if (!dateAttr) return null;
+      const updateTime = (0, import_moment.default)(dateAttr, "DD.MM.YY");
+      if (!updateTime.isValid()) return null;
+      if ((0, import_moment.default)(time).isBefore(updateTime)) return id;
       return null;
-    }
-    getTagsNames($2) {
-      const genres = [];
-      for (const obj of $2("a", $2("td")).toArray()) {
-        const label = $2(obj).text().trim() ?? "";
-        if (!label) continue;
-        genres.push(label);
-      }
-      return genres;
     }
     parseTags($2) {
       const genres = [];
-      let idArray = $2("li > input").toArray();
-      let labelArray = $2("label > span").toArray();
+      const idArray = $2("li > input").toArray();
+      const labelArray = $2("label > span").toArray();
       labelArray.forEach((obj, index2) => {
         const label = $2(obj).attr("title")?.trim();
-        if (label) {
-          let id = $2(idArray[index2]).attr("id")?.trim();
-          if (id)
-            genres.push(App.createTag({ label, id }));
-        }
+        if (!label) return;
+        const idEl = idArray[index2];
+        const id = idEl ? $2(idEl).attr("id")?.trim() : void 0;
+        if (id) genres.push(App.createTag({ label, id }));
       });
+      if (genres.length === 0) return [];
       return [App.createTagSection({ id: "0", label: "\u0422\u0435\u0433\u0438", tags: genres })];
     }
-    parseHomePageSection($2, cheerio, domain) {
-      let tiles = [];
-      let collectedIds = [];
-      for (let obj of $2("tr", $2(".listing")).toArray()) {
-        let titleText = this.decodeHTMLEntity($2("a", $2(obj)).first().text().replace("\n", "").trim());
-        let id = $2("a", $2(obj)).attr("href")?.replace("/Comic/", "");
-        if (!titleText || !id) {
-          continue;
-        }
-        let imageCheerio = cheerio.load($2("td", $2(obj)).first().attr("title") ?? "");
-        let url = this.decodeHTMLEntity(imageCheerio("img").attr("src"));
-        let image = url.includes("http") ? url : `${domain}${url}`;
-        if (typeof id === "undefined" || typeof image === "undefined") continue;
-        if (!collectedIds.includes(id)) {
-          tiles.push(App.createPartialSourceManga({
-            mangaId: id,
-            title: titleText,
-            image
-          }));
-          collectedIds.push(id);
-        }
-      }
-      return tiles;
-    }
     isLastPage($2) {
-      return $2("i.fa.fa-arrow-right").toArray().length > 0 ? false : true;
+      return $2("i.fa.fa-arrow-right").toArray().length === 0;
     }
     decodeHTMLEntity(str) {
-      return str.replace(/&#(\d+);/g, function(match, dec) {
-        return String.fromCharCode(dec);
-      });
+      return str.replace(/&#(\d+);/g, (_match, dec) => String.fromCharCode(Number(dec)));
     }
   };
 
   // src/ReadManga/ReadManga.ts
   var ReadManga_DOMAIN = "https://a.zazaza.me";
   var AdultManga_DOMAIN = "https://1.seimanga.me";
+  var SEARCH_PAGE_SIZE = 70;
   var ReadMangaInfo = {
     version: "1.2.1",
     name: "ReadManga",
@@ -19522,77 +19501,39 @@ var _Sources = (() => {
         requestTimeout: 3e4
       });
       this.baseUrl = ReadManga_DOMAIN;
-      this.userAgentRandomizer = `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/78.0${Math.floor(Math.random() * 1e5)}`;
+      this.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/78.0";
       this.parser = new Parser3();
     }
     getMangaShareUrl(mangaId) {
       return `${ReadManga_DOMAIN}/${mangaId}`;
     }
     async getMangaDetails(mangaId) {
-      let request = App.createRequest({
-        url: `${ReadManga_DOMAIN}/${mangaId}`,
-        method: "GET",
-        headers: this.constructHeaders({}),
-        param: "?mtr=1"
-      });
-      let data2 = await this.requestManager.schedule(request, 1);
-      if (data2.status === 404) {
-        request = App.createRequest({
-          url: `${AdultManga_DOMAIN}/${mangaId}`,
-          method: "GET",
-          headers: this.constructHeaders({}),
-          param: "?mtr=1"
-        });
-        data2 = await this.requestManager.schedule(request, 1);
-      }
-      let $2 = load(data2.data ?? "");
+      const $2 = await this.fetchMangaPage(mangaId);
       return this.parser.parseMangaDetails($2, mangaId);
     }
     async getChapters(mangaId) {
-      let chapters = [];
-      let request = App.createRequest({
-        url: `${ReadManga_DOMAIN}/${mangaId}`,
-        method: "GET",
-        headers: this.constructHeaders({}),
-        param: "?mtr=1"
-      });
-      let data2 = await this.requestManager.schedule(request, 1);
-      if (data2.status === 404) {
-        request = App.createRequest({
-          url: `${AdultManga_DOMAIN}/${mangaId}`,
-          method: "GET",
-          headers: this.constructHeaders({}),
-          param: "?mtr=1"
-        });
-        data2 = await this.requestManager.schedule(request, 1);
-      }
-      let $2 = load(data2.data ?? "");
-      chapters = this.parser.parseChapterList($2, mangaId);
-      return chapters;
+      const $2 = await this.fetchMangaPage(mangaId);
+      return this.parser.parseChapterList($2, mangaId);
     }
     async getChapterDetails(mangaId, chapterId) {
-      let sources = [
-        `${ReadManga_DOMAIN}/${mangaId}/${chapterId}`,
-        `${AdultManga_DOMAIN}/${mangaId}/${chapterId}`,
-        `${AdultManga_DOMAIN}/${chapterId}`
+      const sources = [
+        { domain: ReadManga_DOMAIN, path: `/${mangaId}/${chapterId}` },
+        { domain: AdultManga_DOMAIN, path: `/${mangaId}/${chapterId}` },
+        { domain: AdultManga_DOMAIN, path: `/${chapterId}` }
       ];
       let pages = [];
-      let request;
-      let data2;
-      let $2;
-      for (let source of sources) {
-        request = App.createRequest({
-          url: `${source}`,
+      for (const source of sources) {
+        const request = App.createRequest({
+          url: `${source.domain}${source.path}`,
           method: "GET",
-          headers: this.constructHeaders({}),
+          headers: this.constructHeaders({}, "", source.domain),
           param: "?mtr=1"
         });
-        data2 = await this.requestManager.schedule(request, 1);
-        $2 = load(data2.data ?? "");
+        const data2 = await this.requestManager.schedule(request, 1);
+        const $2 = load(data2.data ?? "");
         pages = this.parser.parseChapterDetails($2);
         if (pages.length > 0) break;
       }
-      console.log("found pages: " + pages.length);
       return App.createChapterDetails({
         id: chapterId,
         mangaId,
@@ -19600,54 +19541,52 @@ var _Sources = (() => {
       });
     }
     async getSearchResults(query, metadata) {
-      let page = metadata?.page ?? 1;
-      let allManga = [];
-      let mData = void 0;
-      const readMangaRequest = this.constructSearchRequest(query, ReadManga_DOMAIN);
-      const adultMangaRequest = this.constructSearchRequest(query, AdultManga_DOMAIN);
+      const page = metadata?.page ?? 1;
+      const readMangaRequest = this.constructSearchRequest(query, ReadManga_DOMAIN, page);
+      const adultMangaRequest = this.constructSearchRequest(query, AdultManga_DOMAIN, page);
       try {
         const [readMangaData, adultMangaData] = await Promise.all([
           this.requestManager.schedule(readMangaRequest, 1),
           this.requestManager.schedule(adultMangaRequest, 1)
         ]);
-        let readMangaResults = [];
+        let $readManga;
         if (readMangaData.data) {
-          let $readManga = load(readMangaData.data);
-          readMangaResults = this.parser.parseSearchResults($readManga, browser_exports);
+          $readManga = load(readMangaData.data);
         }
-        let adultMangaResults = [];
+        let $adultManga;
         if (adultMangaData.data) {
-          let $adultManga = load(adultMangaData.data);
-          adultMangaResults = this.parser.parseSearchResults($adultManga, browser_exports);
+          $adultManga = load(adultMangaData.data);
         }
-        allManga = [...readMangaResults, ...adultMangaResults];
-        const uniqueManga = allManga.filter(
-          (manga, index2, self) => index2 === self.findIndex((m) => m.mangaId === manga.mangaId)
-        );
-        allManga = uniqueManga;
-        if (readMangaData.data) {
-          let $readManga = load(readMangaData.data);
-          if (!this.parser.isLastPage($readManga)) {
-            mData = { page: page + 1 };
+        const readMangaResults = $readManga ? this.parser.parseSearchResults($readManga) : [];
+        const adultMangaResults = $adultManga ? this.parser.parseSearchResults($adultManga) : [];
+        const unique = /* @__PURE__ */ new Map();
+        for (const manga of [...readMangaResults, ...adultMangaResults]) {
+          if (!unique.has(manga.mangaId)) {
+            unique.set(manga.mangaId, manga);
           }
         }
+        const allManga = [...unique.values()];
+        let mData;
+        if ($readManga && !this.parser.isLastPage($readManga)) {
+          mData = { page: page + 1 };
+        }
+        return App.createPagedResults({
+          results: allManga,
+          metadata: mData
+        });
       } catch (error) {
         console.error("Error during search:", error);
-        allManga = [];
+        return App.createPagedResults({ results: [], metadata: void 0 });
       }
-      return App.createPagedResults({
-        results: allManga,
-        metadata: mData
-      });
     }
     async getSearchTags() {
       const tagsIdRequest = App.createRequest({
         url: `${ReadManga_DOMAIN}/search/advanced`,
         method: "GET",
-        headers: this.constructHeaders({})
+        headers: this.constructHeaders({}, "", ReadManga_DOMAIN)
       });
       const searchData = await this.requestManager.schedule(tagsIdRequest, 1);
-      let $2 = load(searchData.data ?? "");
+      const $2 = load(searchData.data ?? "");
       return this.parser.parseTags($2);
     }
     async getHomePageSections(sectionCallback) {
@@ -19656,7 +19595,7 @@ var _Sources = (() => {
           request: App.createRequest({
             url: `${ReadManga_DOMAIN}/list`,
             method: "GET",
-            headers: this.constructHeaders({}),
+            headers: this.constructHeaders({}, "", ReadManga_DOMAIN),
             param: "?sortType=votes"
           }),
           section: App.createHomeSection({
@@ -19670,7 +19609,7 @@ var _Sources = (() => {
           request: App.createRequest({
             url: `${ReadManga_DOMAIN}/list`,
             method: "GET",
-            headers: this.constructHeaders({}),
+            headers: this.constructHeaders({}, "", ReadManga_DOMAIN),
             param: "?sortType=created"
           }),
           section: App.createHomeSection({
@@ -19684,7 +19623,7 @@ var _Sources = (() => {
           request: App.createRequest({
             url: `${AdultManga_DOMAIN}/list`,
             method: "GET",
-            headers: this.constructHeaders({}),
+            headers: this.constructHeaders({}, "", AdultManga_DOMAIN),
             param: "?sortType=rate"
           }),
           section: App.createHomeSection({
@@ -19701,7 +19640,7 @@ var _Sources = (() => {
         promises.push(
           this.requestManager.schedule(section.request, 1).then((response) => {
             const $2 = load(response.data ?? "");
-            section.section.items = this.parser.parseSearchResults($2, browser_exports);
+            section.section.items = this.parser.parseSearchResults($2);
             sectionCallback(section.section);
           })
         );
@@ -19709,34 +19648,37 @@ var _Sources = (() => {
       await Promise.all(promises);
     }
     async getViewMoreItems(homepageSectionId, metadata) {
-      let webPage = "";
-      let page = metadata?.page ?? 0;
+      const offset = metadata?.page ?? 0;
+      let url = "";
+      let domain = ReadManga_DOMAIN;
       switch (homepageSectionId) {
         case "1": {
-          webPage = `/list?sortType=DATE_CREATE&offset=${page}`;
+          url = `${ReadManga_DOMAIN}/list?sortType=created&offset=${offset}`;
           break;
         }
         case "0": {
-          webPage = `/list?sortType=USER_RATING&offset=${page}`;
+          url = `${ReadManga_DOMAIN}/list?sortType=votes&offset=${offset}`;
+          break;
+        }
+        case "2": {
+          url = `${AdultManga_DOMAIN}/list?sortType=rate&offset=${offset}`;
+          domain = AdultManga_DOMAIN;
           break;
         }
         default:
-          return Promise.resolve({
-            results: [],
-            metadata: {}
-          });
+          return App.createPagedResults({ results: [], metadata: void 0 });
       }
-      let request = App.createRequest({
-        url: `${ReadManga_DOMAIN}${webPage}`,
+      const request = App.createRequest({
+        url,
         method: "GET",
-        headers: this.constructHeaders({})
+        headers: this.constructHeaders({}, "", domain)
       });
-      let data2 = await this.requestManager.schedule(request, 1);
-      let $2 = load(data2.data ?? "");
-      let manga = this.parser.parseSearchResults($2, browser_exports);
+      const data2 = await this.requestManager.schedule(request, 1);
+      const $2 = load(data2.data ?? "");
+      const manga = this.parser.parseSearchResults($2);
       let mData;
       if (!this.parser.isLastPage($2)) {
-        mData = { page: page + 70 };
+        mData = { page: offset + SEARCH_PAGE_SIZE };
       } else {
         mData = void 0;
       }
@@ -19747,56 +19689,58 @@ var _Sources = (() => {
     }
     async filterUpdatedManga(mangaUpdatesFoundCallback, time, ids) {
       const collectedIds = [];
-      let data2;
       for (const id of ids) {
         try {
-          const request = App.createRequest({
-            url: `${ReadManga_DOMAIN}/${id}`,
-            method: "GET",
-            headers: this.constructHeaders({}),
-            param: "?mtr=1"
-          });
-          data2 = await this.requestManager.schedule(request, 1);
-        } catch (e) {
-          const request = App.createRequest({
-            url: `${AdultManga_DOMAIN}/${id}`,
-            method: "GET",
-            headers: this.constructHeaders({}),
-            param: "?mtr=1"
-          });
-          data2 = await this.requestManager.schedule(request, 1);
+          const $2 = await this.fetchMangaPage(id);
+          if (this.parser.parseUpdatedManga($2, time, id) != null) {
+            collectedIds.push(id);
+          }
+        } catch {
         }
-        let $2 = load(data2.data ?? "");
-        if (this.parser.parseUpdatedManga($2, browser_exports, time, id) != null)
-          collectedIds.push(id);
       }
       mangaUpdatesFoundCallback(App.createMangaUpdates({
         ids: collectedIds
       }));
     }
-    constructHeaders(headers, refererPath) {
-      if (this.userAgentRandomizer !== "") {
-        headers["user-agent"] = this.userAgentRandomizer;
-      }
-      headers["referer"] = `${this.baseUrl}${refererPath ?? ""}`;
-      headers["content-type"] = "application/x-www-form-urlencoded";
-      return headers;
-    }
-    constructSearchRequest(searchQuery, domain) {
-      const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
-      let params = `?&offset=&years=1950,${currentYear}&sortType=RATING&__cpo=aHR0cHM6Ly9taW50bWFuZ2EubGl2ZQ`;
-      params += searchQuery.title ? `&q=${searchQuery.title}` : `&q=`;
-      if (searchQuery.includedTags)
-        for (const tag of searchQuery.includedTags) {
-          params += `&${tag.id}=in`;
+    async fetchMangaPage(mangaId) {
+      let data2;
+      for (const domain of [ReadManga_DOMAIN, AdultManga_DOMAIN]) {
+        try {
+          const request = App.createRequest({
+            url: `${domain}/${mangaId}`,
+            method: "GET",
+            headers: this.constructHeaders({}, "", domain),
+            param: "?mtr=1"
+          });
+          data2 = await this.requestManager.schedule(request, 1);
+          if (data2.status !== 404) break;
+        } catch {
+          data2 = void 0;
         }
-      console.log("search parameters " + params);
+      }
+      return load(data2?.data ?? "");
+    }
+    constructSearchRequest(searchQuery, domain, page) {
+      const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+      const offset = (page - 1) * SEARCH_PAGE_SIZE;
+      let params = `?offset=${offset}&years=1950,${currentYear}&sortType=RATING`;
+      params += searchQuery.title ? `&q=${encodeURIComponent(searchQuery.title)}` : "&q=";
+      for (const tag of searchQuery.includedTags) {
+        params += `&${encodeURIComponent(tag.id)}=in`;
+      }
       return App.createRequest({
         url: `${domain}/search/advancedResults`,
         method: "GET",
-        headers: this.constructHeaders({}),
-        param: encodeURI(params)
+        headers: this.constructHeaders({}, "", domain),
+        param: params
       });
+    }
+    constructHeaders(headers = {}, refererPath = "", domain = this.baseUrl) {
+      headers["user-agent"] = this.userAgent;
+      headers["referer"] = `${domain}${refererPath}`;
+      headers["accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+      headers["accept-language"] = "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7";
+      return headers;
     }
   };
   return __toCommonJS(ReadManga_exports);
