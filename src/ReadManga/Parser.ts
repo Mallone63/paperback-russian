@@ -12,193 +12,187 @@ import { CheerioAPI } from 'cheerio'
 export class Parser {
 
     parseMangaDetails($: CheerioAPI, mangaId: string): SourceManga {
-
-        let titles = [
+        const titles = [
             $('meta[itemprop="name"]').attr('content') ?? '',
             $('meta[itemprop="alternativeHeadline"]').attr('content') ?? ''
-        ];       
-        let image = $('img.cr-hero-poster__img[src]').attr('src') ?? ''
+        ]
+        const image = $('img.cr-hero-poster__img[src]').attr('src') ?? ''
 
-        let status = 'Ongoing', author = '', rating: number = 0, artist = '', summary
+        // Production status is exposed via data-production-status ("FINISHED"/"ONGOING")
+        const productionStatus = $('span[data-production-status]').first().attr('data-production-status')
+        const status = productionStatus === 'FINISHED' ? 'Completed' : 'Ongoing'
 
-        author = $('.cr-main-person-item:contains("Сценаристы") a.cr-main-person-item__name').map((i,el)=>$(el).text().trim()).get().join(', ');
-
-        artist = $('.cr-main-person-item:contains("Художники") a.cr-main-person-item__name').map((i,el)=>$(el).text().trim()).get().join(', ');
-        summary = $("div.cr-description__content > div").first().text()
-
-        status = $("span.cr-info-details__status").first().text().includes('Продолжается') ? 'Ongoing' : 'Completed'
-
+        const author = this.collectPersonNames($, 'Сценаристы')
+        const artist = this.collectPersonNames($, 'Художники')
+        const summary = $('div.cr-description__content').first().text()
 
         return App.createSourceManga({
             id: mangaId,
             mangaInfo: App.createMangaInfo({
-                rating: rating,
-                titles: titles,
-                image: image,
-                status: status,
-                author: author.trim(),
-                artist: artist.trim(),
-                desc: this.decodeHTMLEntity(summary ?? '')
-
+                rating: 0,
+                titles,
+                image,
+                status,
+                author,
+                artist,
+                desc: this.decodeHTMLEntity(summary.trim())
             })
         })
     }
 
+    private collectPersonNames($: CheerioAPI, role: string): string {
+        const names: string[] = []
+        const seen = new Set<string>()
+        for (const item of $('.cr-main-person-item').toArray()) {
+            const roleText = $('.cr-main-person-item__role', item).first().text().trim()
+            if (roleText !== role) continue
+            for (const nameEl of $('.cr-main-person-item__name', item).toArray()) {
+                const name = $(nameEl).text().trim()
+                if (name && !seen.has(name)) {
+                    seen.add(name)
+                    names.push(name)
+                }
+            }
+        }
+        return names.join(', ')
+    }
+
     parseChapterList($: CheerioAPI, mangaId: string): Chapter[] {
+        const chapters: Chapter[] = []
 
-        let chapters: Chapter[] = []
+        const chapArray = $('a.cp-l').toArray().reverse()
+        const timeArray = $('td.date').toArray().reverse()
 
-        let chapArray = $('a.cp-l').toArray().reverse()
-        let timeArray = $('td.date').toArray().reverse()
         for (let i = 0; i < chapArray.length; i++) {
-            let obj = chapArray[i]
-            let chapterId = $(obj)?.attr('href')?.replace(`/${mangaId}/`, '')
-            let chapNum = i + 1
-            let chapName = $(obj)?.text().trim()
-            let time = moment($(timeArray[i]).attr('data-date'), 'DD.MM.YY')
-            if (typeof chapterId === 'undefined' || isNaN(chapNum) || !time) continue
+            const anchor = chapArray[i]
+            if (!anchor) continue
+            const href = $(anchor).attr('href')
+            if (!href) continue
+
+            // chapterId is the path relative to /{mangaId}/, e.g. "vol3/197"
+            const chapterId = href.replace(`/${mangaId}/`, '')
+            if (!chapterId || chapterId === href) continue
+
+            const dateNode = timeArray[i]
+            if (!dateNode) continue
+            const time = moment($(dateNode).attr('data-date'), 'DD.MM.YY')
+            if (!time.isValid()) continue
+
+            const name = $(anchor).text().trim()
+
+            // The parent <td> carries data-num (chapter * 10, to support fractions)
+            const dataNum = $(anchor).closest('[data-num]').attr('data-num')
+            let chapNum = dataNum ? Number(dataNum) / 10 : NaN
+            if (isNaN(chapNum)) {
+                const lastSegment = chapterId.split('/').pop() ?? ''
+                chapNum = parseFloat(lastSegment)
+            }
+            if (isNaN(chapNum)) {
+                chapNum = i + 1
+            }
+
             chapters.push(App.createChapter({
                 id: chapterId,
-                chapNum: Number(chapNum),
+                chapNum,
                 langCode: 'RU',
-                name: chapName,
+                name: name || String(chapNum),
                 time: time.toDate()
             }))
         }
         return chapters
     }
 
-    parseChapterDetails($: CheerioAPI): string[] {
-        const scripts = $('script')
-        // console.log('scripts found: ', scripts.length)
-        let pages: string[] = []
-        for (const script of scripts.toArray()) {
-            const scriptContent = $(script).html()
-            if (scriptContent && scriptContent.includes('rm_h.readerInit(')) {
-                const links = [...scriptContent.matchAll(/(?:\[\'(https.*?)\"\,)/ig)]
-                for (const link of links) {
-                    if (link[1]) {
-                        // console.log(link)
-                        let strippedLink = link[1].replace('\',\'\',\"', '')
-                        if (!strippedLink.includes('rmr.rocks'))
-                            strippedLink = strippedLink.replace(/\?.*$/g, "")
-                        // console.log(strippedLink)
-                        if (!strippedLink.includes('auto/15/49/36'))
-                            pages.push(strippedLink)
-                    }
+    parseChapterDetails($: CheerioAPI, domain: string): string[] {
+        const pages: string[] = []
+        for (const script of $('script').toArray()) {
+            const scriptContent = $(script).html() ?? ''
+            if (!scriptContent.includes('rm_h.readerInit(')) continue
+
+            // Reader format: ['https://cdn/','',"path?auth",width,height,'']
+            // - zazaza: absolute base + relative path
+            // - seimanga: empty base + root-relative path
+            const regex = /\[\'([^']*)\'\s*,\s*\'\'\s*,\s*"([^"]+)"/g
+            let match: RegExpExecArray | null
+            while ((match = regex.exec(scriptContent)) !== null) {
+                const base = match[1]
+                const rawPath = match[2]
+                if (!rawPath) continue
+
+                // Strip the signed query string (?t=...&u=0&h=...). Keeping it makes
+                // DDoS-Guard return HTTP 300 for clients without a browser session,
+                // so images fail to load. The unsigned path is served directly.
+                const path = rawPath.replace(/\?.*$/, '')
+
+                let url: string
+                if (base) {
+                    url = base + path
+                } else {
+                    url = domain + (path.startsWith('/') ? path : `/${path}`)
                 }
-                break
+                if (!pages.includes(url)) pages.push(url)
             }
+            break
         }
         return pages
     }
 
-    parseSearchResults($: CheerioAPI, cheerio: any): any {
-        let mangaTiles: PartialSourceManga[] = []
-        let collectedIds: string[] = []
+    parseSearchResults($: CheerioAPI): PartialSourceManga[] {
+        const mangaTiles: PartialSourceManga[] = []
+        const collectedIds = new Set<string>()
 
-        let directManga = $('div.tile')
-        let descArray = $('h3', directManga).toArray()
-        let imgArray = $('img.lazy.img-fluid', directManga).toArray()
+        for (const tile of $('div.tile').toArray()) {
+            const link = $('div.desc h3 > a, div.desc > a', tile).first()
+            const id = (link.attr('href') ?? '').replace('/', '').trim()
+            const titleText = (link.text() || link.attr('title') || '').trim()
+            const image = ($('img.lazy.img-fluid', tile).attr('data-original') ?? '').replace('_p', '')
 
-        let index = 0
-        for (let obj of descArray) {
-            let titleText = $('a', $(obj)).text()
-            let id = $('a', $(obj)).attr('href')?.replace('/', '')
-            let image = imgArray[index]?.attribs['data-original']?.replace('_p', '')
-            index++
-            if (!titleText || !id || !image) {
-                continue
-            }
-            if (typeof id === 'undefined' || id.includes('/person/')) continue
-            if (!collectedIds.includes(id)) {
-                mangaTiles.push(App.createPartialSourceManga({
-                    mangaId: id,
-                    title: titleText,
-                    image: image
-                }))
-                collectedIds.push(id)
-            }
+            if (!id || !titleText || !image) continue
+            if (id.includes('/person/')) continue
+            if (collectedIds.has(id)) continue
+
+            collectedIds.add(id)
+            mangaTiles.push(App.createPartialSourceManga({
+                mangaId: id,
+                title: this.decodeHTMLEntity(titleText),
+                image
+            }))
         }
         return mangaTiles
     }
 
-    parseUpdatedManga($: CheerioAPI, cheerio: any, time: Date, id: string): any {
-        let timeArray = $('td.date').toArray()
+    parseUpdatedManga($: CheerioAPI, time: Date, id: string): string | null {
+        const dateAttr = $('td.date').first().attr('data-date')
+        if (!dateAttr) return null
 
+        const updateTime = moment(dateAttr, 'DD.MM.YY')
+        if (!updateTime.isValid()) return null
 
-        let updateTime = moment($(timeArray[0]).attr('data-date'), 'DD.MM.YY')
-
-        let lastUpdatedTime = moment(time)
-        if (lastUpdatedTime.isBefore(updateTime))
-            return id
+        if (moment(time).isBefore(updateTime)) return id
         return null
     }
 
-    getTagsNames($: CheerioAPI): string[] {
-
-        const genres: string[] = []
-        for (const obj of $('a', $('td')).toArray()) {
-            const label = $(obj).text().trim() ?? ''
-            if (!label) continue
-            genres.push(label)
-        }
-        return genres
-    }
-
     parseTags($: CheerioAPI): TagSection[] {
-
+        // Note: the advanced-search form on the current domain is rendered
+        // client-side (Vue SPA), so this may return no tags.
         const genres: Tag[] = []
-        let idArray = $('li > input').toArray()
-        let labelArray = $('label > span').toArray()
+        const idArray = $('li > input').toArray()
+        const labelArray = $('label > span').toArray()
         labelArray.forEach((obj, index) => {
             const label = $(obj).attr('title')?.trim()
-            if (label) {
-                let id = $(idArray[index]).attr('id')?.trim()
-                if (id)
-                    genres.push(App.createTag({ label, id }))
-            }
+            if (!label) return
+            const idEl = idArray[index]
+            const id = idEl ? $(idEl).attr('id')?.trim() : undefined
+            if (id) genres.push(App.createTag({ label, id }))
         })
+        if (genres.length === 0) return []
         return [App.createTagSection({ id: '0', label: 'Теги', tags: genres })]
     }
 
-    parseHomePageSection($: CheerioAPI, cheerio: any, domain: string): PartialSourceManga[] {
-
-        let tiles: PartialSourceManga[] = []
-        let collectedIds: string[] = []
-        for (let obj of $('tr', $('.listing')).toArray()) {
-
-            let titleText = this.decodeHTMLEntity($('a', $(obj)).first().text().replace('\n', '').trim())
-            let id = $('a', $(obj)).attr('href')?.replace('/Comic/', '')
-            if (!titleText || !id) {
-                continue
-
-            }
-            //Tooltip Selecting 
-            let imageCheerio = cheerio.load($('td', $(obj)).first().attr('title') ?? '')
-            let url = this.decodeHTMLEntity(imageCheerio('img').attr('src'))
-            let image = url.includes('http') ? url : `${domain}${url}`
-
-            if (typeof id === 'undefined' || typeof image === 'undefined') continue
-            if (!collectedIds.includes(id)) {
-                tiles.push(App.createPartialSourceManga({
-                    mangaId: id,
-                    title: titleText,
-                    image: image
-                }))
-                collectedIds.push(id)
-            }
-        }
-        return tiles
-    }
-
     isLastPage($: CheerioAPI): boolean {
-        return $('i.fa.fa-arrow-right').toArray().length > 0 ? false : true
+        return $('i.fa.fa-arrow-right').toArray().length === 0
     }
 
     decodeHTMLEntity(str: string): string {
-        return str.replace(/&#(\d+);/g, function (match, dec) {
-            return String.fromCharCode(dec);
-        })
+        return str.replace(/&#(\d+);/g, (_match, dec) => String.fromCharCode(Number(dec)))
     }
 }
